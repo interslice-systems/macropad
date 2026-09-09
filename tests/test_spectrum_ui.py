@@ -32,6 +32,9 @@ class TileGrid:
         self.values[key] = value
         self.writes += 1
 
+    def __getitem__(self, key):
+        return self.values.get(key, self.kw.get('default_tile', 0))
+
 
 class Palette(dict):
     def __init__(self, n):
@@ -59,9 +62,14 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
         Path(__file__).parents[1] / 'firmware/pad/ui.py')
     ui = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ui)
+    # CircuitPython's dict order differs: the actual pad's tile zero was '/'.
+    glyphs = ui.km_stereo.GLYPHS
+    monkeypatch.setattr(ui.km_stereo, 'GLYPHS', '/' + glyphs.replace('/', ''))
     monkeypatch.setattr(ui, '_rain_sheet', lambda font: (Bitmap(198,12,2),6,12,16))
     display = types.SimpleNamespace(auto_refresh=True)
     screen = ui.Screen(display)
+    for text_grid in screen._media_grids:
+        assert all(ui.km_stereo.GLYPHS[text_grid[col, 0]] == ' ' for col in range(20))
     screen.set_weather('calm')
     screen.set_spectrum({'active': True, 'bars': [8]*16}, 0)
     screen.tick(50)
@@ -72,6 +80,8 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
     screen.set_media({'title':'Summer lofi radio','artist':'Lofi Girl'},50)
     screen.tick(100)
     assert screen._media_drawn == ('SUMMER LOFI RADIO   '.ljust(20), 'LOFI GIRL'.ljust(20))
+    for line, text_grid in zip(screen._media_drawn, screen._media_grids):
+        assert ''.join(ui.km_stereo.GLYPHS[text_grid[col, 0]] for col in range(20)) == line
     text_writes = sum(g.writes for g in screen._media_grids)
     writes = grid.writes
     screen.tick(150)

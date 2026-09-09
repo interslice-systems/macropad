@@ -226,7 +226,8 @@ class Screen:
         for y in (0, 9):
             grid = displayio.TileGrid(font_sheet, pixel_shader=pal,
                                       width=km_stereo.COLS, height=1,
-                                      tile_width=6, tile_height=8, x=8, y=y)
+                                      tile_width=6, tile_height=8, x=8, y=y,
+                                      default_tile=km_stereo.GLYPHS.index(' '))
             self._media_grids.append(grid)
             self._spectrum_group.append(grid)
         self._readout = km_stereo.Readout(ticks_diff)

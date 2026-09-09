@@ -5,6 +5,7 @@ import pytest
 
 import km_proto
 from operatord.serial_link import SerialLink
+from operatord import serial_link
 
 
 @pytest.fixture
@@ -122,3 +123,94 @@ def test_missing_device_keeps_retrying():
         return alive
 
     assert asyncio.run(scenario()) is True
+
+
+@pytest.fixture
+def stalled_writer(monkeypatch):
+    class Loop:
+        writer = None
+
+        def add_writer(self, fd, callback):
+            self.writer = callback
+
+        def remove_writer(self, fd):
+            self.writer = None
+
+        def remove_reader(self, fd):
+            pass
+
+    class Port:
+        out_waiting = 0
+        closed = False
+
+        def fileno(self):
+            return 42
+
+        def close(self):
+            self.closed = True
+
+        def write(self, data):
+            raise AssertionError('must not use pyserial post-write select')
+
+    loop, port, downs = Loop(), Port(), []
+    monkeypatch.setattr(asyncio, 'get_running_loop', lambda: loop)
+    link = SerialLink('unused', lambda m: None, lambda: None,
+                      on_down=lambda: downs.append(1))
+    link._ser = port
+    return link, loop, port, downs
+
+
+def test_partial_write_waits_without_disconnect_and_preserves_packet_boundaries(stalled_writer, monkeypatch):
+    link, loop, port, downs = stalled_writer
+    written = bytearray()
+    busy = True
+
+    def write(fd, data):
+        if busy and written:
+            raise BlockingIOError()
+        n = 5 if busy else len(data)
+        written.extend(data[:n])
+        return n
+
+    monkeypatch.setattr(serial_link.os, 'write', write)
+    first = {'t':'spectrum','active':True,'bars':[4]*16}
+    state = {'t':'ws','active':3}
+    assert link.send_frame(first)
+    assert loop.writer is not None
+    assert link.send(state)  # reliable state waits behind the packet fragment
+    assert not link.send_frame({'t':'spectrum','active':True,'bars':[8]*16})
+    for _ in range(4):
+        loop.writer()  # a busy device must not be treated as a lost link
+    assert not downs and not port.closed
+    busy = False
+    loop.writer()
+    assert km_proto.LineCodec().feed(written) == [first,state]
+    assert loop.writer is None and link._tx_bytes == 0
+    assert link.send_frame({'t':'media','title':'Live','artist':''})
+    assert len(km_proto.LineCodec().feed(written)) == 3
+
+
+def test_io_failure_clears_partial_packet_and_writer(stalled_writer, monkeypatch):
+    link, loop, port, downs = stalled_writer
+    def busy(fd,data):
+        raise BlockingIOError()
+    monkeypatch.setattr(serial_link.os, 'write', busy)
+    assert link.send({'t':'ping'})
+    def disconnected(fd,data):
+        raise OSError('USB removed')
+    monkeypatch.setattr(serial_link.os, 'write', disconnected)
+    loop.writer()
+    assert downs == [1] and port.closed
+    assert loop.writer is None and not link._tx and link._tx_bytes == 0
+
+
+def test_reliable_queue_is_bounded(stalled_writer, monkeypatch):
+    link, loop, port, downs = stalled_writer
+    def busy(fd,data):
+        raise BlockingIOError()
+    monkeypatch.setattr(serial_link.os, 'write', busy)
+    monkeypatch.setattr(serial_link, 'MAX_TX_BYTES', 32)
+    assert link.send({'t':'ping'})
+    assert link.send({'t':'ping'})
+    assert not link.send({'t':'ping'})
+    assert downs == [1] and port.closed and loop.writer is None
