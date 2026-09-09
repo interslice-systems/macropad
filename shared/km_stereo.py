@@ -62,8 +62,7 @@ def backdrop():
     """Immutable bezel, play marker and logarithmic frequency legend."""
     pixels = set()
     for x in range(2,126):
-        if not 46 <= x <= 81:
-            pixels.add((x,19))
+        pixels.add((x,19))
         pixels.add((x,55))
     for y in range(21,54):
         pixels.add((0,y))
@@ -82,7 +81,6 @@ def backdrop():
                 for col in range(3):
                     if mask & (1 << (2-col)):
                         pixels.add((x+i*4+col,y+r))
-    text('SPECTRUM',48,17)
     for s,x in (('50',1),('250',28),('1K',60),('4K',88),('16K',116)):
         text(s,x,58)
     return pixels
