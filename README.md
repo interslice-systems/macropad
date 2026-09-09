@@ -30,8 +30,8 @@ A single app: **Cockpit**, the split deck.
   ordinary Kitty, foot, and Ghostty windows work without special classes or
   launchers. Focused full-bright, others dimmed, bell pulsing. Tap to jump to
   that window.
-- The OLED shows a 16-band segmented audio spectrum during playback, with
-  one-second peak-hold caps. Two seconds of silence returns it to sparse
+- The OLED shows a framed 16-band segmented audio spectrum during playback,
+  with track/artist text, a frequency legend and one-second peak-hold caps. Two seconds of silence returns it to sparse
   digital rain. Audio comes from the default PipeWire output (including
   Lofi Girl/mpv); no microphone or player-specific plugin is needed. And
   when terminal bells ring elsewhere, a wall of workspace numerals sized by
@@ -105,7 +105,10 @@ first install works before the rule is in place; every later deploy needs it.
 `operatord` supervises a headless CAVA child using `daemon/operatord/cava.conf`.
 It monitors the default PipeWire output passively, mixes left/right for display,
 analyses 50 Hz–16 kHz, and sends 16 levels at 20 fps over the existing CDC link.
-The pad draws 16 columns of two-pixel segments and one-pixel peak caps. Caps
+The pad draws 16 columns of two-pixel segments and one-pixel peak caps inside
+a rounded 128-pixel bezel. Eight segment rows map the 16 incoming levels onto
+a 32-pixel analyzer area; side ticks and a 50/250/1K/4K/16K legend complete the
+stereo faceplate. Caps
 hold for 1000 ms, then drop one segment every 80 ms. This is an automatically
 scaled music visualizer, not a calibrated dB meter.
 
@@ -121,9 +124,35 @@ Protocol: `{"t":"spectrum","active":true,"bars":[...16 integers 0–16...]}`.
 Active frames refresh freshness even when unchanged; silence sends one inactive
 transition. Partial CAVA frames retain alignment, old complete frames are
 coalesced, and decorative serial packets drop when the output queue backs up.
-Firmware builds four tiny tiles once and only writes changed cells, at 20 fps;
+Firmware builds four tiny bar tiles and a 5×7 text font once, and only writes changed cells, at 20 fps;
 hidden spectrum/rain layers do no drawing. Hardware smoothness and physical
 key response still require a bench check; host tests cannot establish those.
+
+### Now playing
+
+The two rows above the analyzer show title and artist, in a fixed 5×7 pixel
+font (20 characters per row). Long lines advance in word-aware held pages
+every three seconds; no sliding text. `operatord.media` reads MPRIS through
+`busctl` every two seconds while connected. mpv, Firefox and other MPRIS
+players require no additional Operator plugin or Python dependency.
+
+Only a **playing** player with a title qualifies. The current source stays
+selected while it plays; when several start together, bus-name order breaks
+the tie. MPRIS does not associate a track with a PipeWire output: simultaneous
+players or audio routed to a different sink can make metadata differ from the
+analyzed mix. Missing metadata shows `SYSTEM AUDIO` / `OPERATOR`; absent artist
+uses `OPERATOR`. Metadata is ASCII-normalized, bounded to 96 characters per
+field and refreshed as a heartbeat; 6.5 seconds without an update clears it.
+
+Protocol: `{"t":"media","title":"So What","artist":"Miles Davis"}`.
+The packet is included in the reconnect snapshot and metadata never decides
+whether to show the analyzer: actual output energy does.
+
+Open [the animated OLED preview](docs/stereo-preview.html) locally in a browser.
+It uses the same font and bezel pixels as firmware, with editable title/artist,
+Lofi/jazz/fallback presets, animation pause and a 1:1 pixel view. Audio in the
+preview is simulated. Regenerate it with `python tools/stereo-preview.py` after
+changing `shared/km_stereo.py`.
 
 ## The CIRCUITPY drive is hidden
 

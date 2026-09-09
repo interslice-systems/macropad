@@ -14,6 +14,7 @@ def no_live_audio(monkeypatch):
     async def idle(*args):
         await asyncio.Future()
     monkeypatch.setattr("operatord.spectrum.watch", idle)
+    monkeypatch.setattr("operatord.media.watch", idle)
 
 WORKSPACES = [{"id": 1, "windows": 1}, {"id": 3, "windows": 2}]
 

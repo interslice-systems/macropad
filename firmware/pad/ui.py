@@ -43,6 +43,7 @@ from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
 
 import km_weather
 import km_spectrum
+import km_stereo
 from assets.digits import DIGITS
 
 # Back to the spec's 100/2 after the bench pass. These briefly ran at 50/4,
@@ -195,22 +196,41 @@ class Screen:
         self._rain_group = displayio.Group()
         self._rain_group.append(self._rain_grid)
 
-        # Spectrum occupies the rain's base slot, underneath every alert.
-        # Four prebuilt 8x4 tiles: blank, two-pixel segment, cap, both.
-        # Updating tile indices avoids per-frame Python pixel loops and clears.
-        sheet = displayio.Bitmap(32, 4, 2)
+        # A single immutable faceplate plus changed-cell bar/text tiles.
+        # Text is our own 5x7 font; terminalio's 6x12 cell won't fit here.
+        face = displayio.Bitmap(128, 64, 2)
+        for x, y in km_stereo.backdrop():
+            face[x, y] = 1
+        self._spectrum_group = displayio.Group()
+        self._spectrum_group.append(displayio.TileGrid(face, pixel_shader=pal))
+        sheet = displayio.Bitmap(28, 4, 2)
         for kind in range(4):
-            for x in range(1, 7):
+            for x in range(1, 6):
                 if kind & 1:
-                    sheet[kind * 8 + x, 2] = 1
-                    sheet[kind * 8 + x, 3] = 1
+                    sheet[kind * 7 + x, 2] = 1
+                    sheet[kind * 7 + x, 3] = 1
                 if kind & 2:
-                    sheet[kind * 8 + x, 0] = 1
+                    sheet[kind * 7 + x, 0] = 1
         self._spectrum_grid = displayio.TileGrid(
             sheet, pixel_shader=pal, width=km_spectrum.BANDS,
-            height=km_spectrum.LEVELS, tile_width=8, tile_height=4)
-        self._spectrum_group = displayio.Group()
+            height=km_stereo.ROWS, tile_width=7, tile_height=4,
+            x=km_stereo.GRID_X, y=km_stereo.GRID_Y)
         self._spectrum_group.append(self._spectrum_grid)
+        font_sheet = displayio.Bitmap(len(km_stereo.GLYPHS) * 6, 8, 2)
+        for i, ch in enumerate(km_stereo.GLYPHS):
+            for y, mask in enumerate(km_stereo.FONT[ch]):
+                for x in range(5):
+                    if mask & (1 << (4-x)):
+                        font_sheet[i * 6 + x, y] = 1
+        self._media_grids = []
+        for y in (0, 9):
+            grid = displayio.TileGrid(font_sheet, pixel_shader=pal,
+                                      width=km_stereo.COLS, height=1,
+                                      tile_width=6, tile_height=8, x=8, y=y)
+            self._media_grids.append(grid)
+            self._spectrum_group.append(grid)
+        self._readout = km_stereo.Readout(ticks_diff)
+        self._media_drawn = (' ' * km_stereo.COLS, ' ' * km_stereo.COLS)
         self._spectrum_group.hidden = True
         self._spectrum = km_spectrum.Spectrum(ticks_diff)
         self._spectrum_clock = km_weather.FrameClock(
@@ -391,6 +411,9 @@ class Screen:
         finally:
             self._display.auto_refresh = True
 
+    def set_media(self, msg, now):
+        self._readout.receive(msg, now)
+
     def set_spectrum(self, msg, now):
         # State only. Drawing and expiry are gated by the independent clock.
         self._spectrum.receive(msg, now)
@@ -409,15 +432,23 @@ class Screen:
                 pair = (self._spectrum.bars[col], self._spectrum.peaks[col])
                 if pair != self._spectrum_drawn[col]:
                     changes.append((col, pair))
-        if not changes and visible == (not self._spectrum_group.hidden):
+        text = self._readout.frame(now) if visible else self._media_drawn
+        text = tuple(line.ljust(km_stereo.COLS) for line in text)
+        if not changes and text == self._media_drawn and visible == (not self._spectrum_group.hidden):
             return
         self._display.auto_refresh = False
         try:
+            for line, grid in enumerate(self._media_grids):
+                for col, ch in enumerate(text[line]):
+                    if ch != self._media_drawn[line][col]:
+                        index = km_stereo.GLYPHS.find(ch)
+                        grid[col, 0] = index if index >= 0 else km_stereo.GLYPHS.index('?')
+            self._media_drawn = text
             for col, pair in changes:
                 old = self._spectrum_drawn[col]
-                for row in range(km_spectrum.LEVELS):
-                    value = km_spectrum.tile(pair[0], pair[1], row)
-                    if value != km_spectrum.tile(old[0], old[1], row):
+                for row in range(km_stereo.ROWS):
+                    value = km_stereo.tile(pair[0], pair[1], row)
+                    if value != km_stereo.tile(old[0], old[1], row):
                         self._spectrum_grid[col, row] = value
                 self._spectrum_drawn[col] = pair
             self._sync_layers()

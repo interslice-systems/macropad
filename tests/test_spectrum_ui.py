@@ -68,9 +68,14 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
     assert screen._rain_group.hidden
     assert not screen._spectrum_group.hidden
     grid = screen._spectrum_grid
-    assert grid.values[0,8] == 3   # top segment and cap
-    writes = grid.writes
+    assert grid.values[0,4] == 3   # top segment and cap
+    screen.set_media({'title':'Summer lofi radio','artist':'Lofi Girl'},50)
     screen.tick(100)
+    assert screen._media_drawn == ('SUMMER LOFI RADIO   '.ljust(20), 'LOFI GIRL'.ljust(20))
+    text_writes = sum(g.writes for g in screen._media_grids)
+    writes = grid.writes
+    screen.tick(150)
+    assert sum(g.writes for g in screen._media_grids) == text_writes
     assert grid.writes == writes  # no mutation of an identical frame
     screen.set_bells([3])
     screen.set_weather('ringing')
@@ -78,6 +83,7 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
     screen.set_spectrum({'active': True, 'bars': [12]*16}, 110)
     screen.tick(150)
     assert grid.writes == writes  # hidden spectrum does no drawing
+    assert sum(g.writes for g in screen._media_grids) == text_writes
     screen.set_bells([])
     screen.set_weather('calm')
     screen.tick(200)

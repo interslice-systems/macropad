@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import hyprland, ledtest, spectrum, tmux
+from . import hyprland, ledtest, media, spectrum, tmux
 from .serial_link import SerialLink
 from .theme import ThemeWatcher
 
@@ -34,6 +34,7 @@ class Supervisor:
         self.cfg = cfg
         self.state = hyprland.HyprState()
         self.palette = None
+        self.media_msg = media.empty()
         self.spectrum_msg = spectrum.stopped()
         # The bottom deck. ctx_items keeps the full items (jump targets
         # included) for tap resolution; ctx_msg is the last WIRE message, kept
@@ -79,6 +80,11 @@ class Supervisor:
             self.link.send(self.ctx_msg)
         self.link.send(self._flags_msg())
         self.link.send(self.spectrum_msg)
+        self.link.send(self.media_msg)
+
+    def _on_media(self, msg):
+        self.media_msg = msg
+        self.link.send_frame(msg)
 
     def _on_spectrum(self, msg):
         self.spectrum_msg = msg
@@ -90,6 +96,7 @@ class Supervisor:
         # ctx otherwise leaves a reconnected pad blank.
         self.ctx_msg = None
         self.spectrum_msg = spectrum.stopped()
+        self.media_msg = media.empty()
 
     async def _on_palette(self, pal):
         # Store and forward. self.palette is kept because _on_link_up re-sends
@@ -256,6 +263,7 @@ class Supervisor:
         await asyncio.gather(self.link.run(), self._hypr_events(),
                              self._refresher(), self._pinger(),
                              self._poll_loop(), theme.run(),
+                             media.watch(self._on_media, lambda: self.link.up),
                              spectrum.watch(self._on_spectrum, lambda: self.link.up),
                              ledtest.watch(str(self.cfg.state_dir / "ledtest.json"),
                                            self.link.send))
