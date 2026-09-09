@@ -109,7 +109,8 @@ The pad draws 16 columns of two-pixel segments and one-pixel peak caps inside
 a rounded 128-pixel bezel. Eight segment rows map the 16 incoming levels onto
 a 32-pixel analyzer area; side ticks and a 50/250/1K/4K/16K legend complete the
 stereo faceplate. Caps
-hold for 1000 ms, then drop one segment every 80 ms. This is an automatically
+hold for 1000 ms, then drop one wire level every 80 ms (one visible segment
+per two levels). This is an automatically
 scaled music visualizer, not a calibrated dB meter.
 
 The spectrum replaces only the rain: bell walls take over, workspace numerals
