@@ -8,6 +8,13 @@ import pytest
 import km_proto
 from keymakerd.__main__ import Config, Supervisor
 
+
+@pytest.fixture(autouse=True)
+def no_live_audio(monkeypatch):
+    async def idle(*args):
+        await asyncio.Future()
+    monkeypatch.setattr("keymakerd.spectrum.watch", idle)
+
 WORKSPACES = [{"id": 1, "windows": 1}, {"id": 3, "windows": 2}]
 
 

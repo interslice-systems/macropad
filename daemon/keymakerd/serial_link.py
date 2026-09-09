@@ -32,11 +32,24 @@ class SerialLink:
             self._drop()
             return False
 
+    def send_frame(self, msg):
+        # Decorative frames are disposable. Never queue seconds of animation
+        # behind a slow pad; state snapshots and key replies take priority.
+        if self._ser is None:
+            return False
+        try:
+            if self._ser.out_waiting > 256:
+                return False
+        except (serial.SerialException, OSError):
+            self._drop()
+            return False
+        return self.send(msg)
+
     async def run(self):
         loop = asyncio.get_running_loop()
         while True:
             try:
-                self._ser = serial.Serial(self.path, 115200, timeout=0)
+                self._ser = serial.Serial(self.path, 115200, timeout=0, write_timeout=0.05)
             except (serial.SerialException, OSError):
                 self._ser = None
                 await asyncio.sleep(self.reconnect_s)

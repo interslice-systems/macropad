@@ -24,7 +24,10 @@ A single app: **Cockpit**, the split deck.
   ordinary Kitty, foot, and Ghostty windows work without special classes or
   launchers. Focused full-bright, others dimmed, bell pulsing. Tap to jump to
   that window.
-- The OLED is a weather display: sparse digital rain while all is calm, and
+- The OLED shows a 16-band segmented audio spectrum during playback, with
+  one-second peak-hold caps. Two seconds of silence returns it to sparse
+  digital rain. Audio comes from the default PipeWire output (including
+  Lofi Girl/mpv); no microphone or player-specific plugin is needed. And
   when terminal bells ring elsewhere, a wall of workspace numerals sized by
   recency — the newest bell largest. A workspace switch flashes that
   workspace's numeral, big and centred, for a moment; REC and submap badges
@@ -72,6 +75,8 @@ in [docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-wea
 - Adafruit MacroPad RP2040 flashed with CircuitPython 10.2.x
 - Linux host running Omarchy (3.x or 4.x) with Hyprland
 - Python ≥3.11 and `python-pyserial` on the host
+- `cava` with PipeWire support for the audio spectrum (`omarchy pkg add cava`);
+  without it the normal rain and controls continue working
 - One terminal-emulator process per window. Kitty single-instance mode, foot
   server mode, Ghostty single-instance mode, and equivalent shared-process
   arrangements cannot be associated reliably and are unsupported.
@@ -88,6 +93,31 @@ The installer prints one manual step: a udev rule (stable
 `/dev/keymaker-*` names, and it keeps ModemManager off the serial ports)
 that needs root to place. A stock pad still shows its CIRCUITPY drive, so the
 first install works before the rule is in place; every later deploy needs it.
+
+## Audio spectrum
+
+`keymakerd` supervises a headless CAVA child using `daemon/keymakerd/cava.conf`.
+It monitors the default PipeWire output passively, mixes left/right for display,
+analyses 50 Hz–16 kHz, and sends 16 levels at 20 fps over the existing CDC link.
+The pad draws 16 columns of two-pixel segments and one-pixel peak caps. Caps
+hold for 1000 ms, then drop one segment every 80 ms. This is an automatically
+scaled music visualizer, not a calibrated dB meter.
+
+The spectrum replaces only the rain: bell walls take over, workspace numerals
+and REC/submap badges remain above it. Rain returns after two seconds with no
+visible audio energy, within 1.5 seconds of missing spectrum packets, or on link
+loss. CAVA is stopped while the pad is disconnected and restarted after failure;
+its stderr goes to `journalctl --user -u keymaker.service`. No new user unit or
+personal CAVA config is needed. `systemctl --user restart keymaker` reloads host
+changes; renderer changes also require `system/deploy-firmware.sh`.
+
+Protocol: `{"t":"spectrum","active":true,"bars":[...16 integers 0–16...]}`.
+Active frames refresh freshness even when unchanged; silence sends one inactive
+transition. Partial CAVA frames retain alignment, old complete frames are
+coalesced, and decorative serial packets drop when the output queue backs up.
+Firmware builds four tiny tiles once and only writes changed cells, at 20 fps;
+hidden spectrum/rain layers do no drawing. Hardware smoothness and physical
+key response still require a bench check; host tests cannot establish those.
 
 ## The CIRCUITPY drive is hidden
 

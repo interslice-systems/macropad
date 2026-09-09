@@ -55,6 +55,19 @@ def test_send_while_down_returns_false():
     assert link.send({"t": "ping"}) is False
 
 
+def test_audio_frames_drop_when_serial_is_backed_up():
+    class BackedUp:
+        out_waiting = 512
+
+        def write(self, data):
+            raise AssertionError("must not queue decorative frames")
+
+    link = SerialLink("unused", on_msg=lambda m: None,
+                      on_up=lambda: asyncio.sleep(0))
+    link._ser = BackedUp()
+    assert link.send_frame({"t": "spectrum"}) is False
+
+
 def test_on_down_fires_when_the_link_drops(pty_pair):
     master, slave_path = pty_pair
     downs = []

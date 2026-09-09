@@ -42,6 +42,7 @@ from adafruit_display_text import label
 from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
 
 import km_weather
+import km_spectrum
 from assets.digits import DIGITS
 
 # Back to the spec's 100/2 after the bench pass. These briefly ran at 50/4,
@@ -52,6 +53,7 @@ from assets.digits import DIGITS
 # silently halves or doubles the rain.
 FRAME_MS = 100               # animation clock, 10 fps
 RAIN_DIV = 2                 # rain advances every 2nd frame (~5 fps)
+SPECTRUM_FRAME_MS = 50       # independent 20 fps clock; rain stays at 5 fps
 RAIN_GLYPHS = "01<>=+*:#$KMTXZ7"          # 16 glyphs, matrix-flavored
 
 _KIND_BANK = {"head": 0, "dim": 1}        # tile-sheet banks; "off" = blank
@@ -193,6 +195,28 @@ class Screen:
         self._rain_group = displayio.Group()
         self._rain_group.append(self._rain_grid)
 
+        # Spectrum occupies the rain's base slot, underneath every alert.
+        # Four prebuilt 8x4 tiles: blank, two-pixel segment, cap, both.
+        # Updating tile indices avoids per-frame Python pixel loops and clears.
+        sheet = displayio.Bitmap(32, 4, 2)
+        for kind in range(4):
+            for x in range(1, 7):
+                if kind & 1:
+                    sheet[kind * 8 + x, 2] = 1
+                    sheet[kind * 8 + x, 3] = 1
+                if kind & 2:
+                    sheet[kind * 8 + x, 0] = 1
+        self._spectrum_grid = displayio.TileGrid(
+            sheet, pixel_shader=pal, width=km_spectrum.BANDS,
+            height=km_spectrum.LEVELS, tile_width=8, tile_height=4)
+        self._spectrum_group = displayio.Group()
+        self._spectrum_group.append(self._spectrum_grid)
+        self._spectrum_group.hidden = True
+        self._spectrum = km_spectrum.Spectrum(ticks_diff)
+        self._spectrum_clock = km_weather.FrameClock(
+            SPECTRUM_FRAME_MS, ticks_ms(), ticks_add, ticks_diff)
+        self._spectrum_drawn = [(0, 0)] * km_spectrum.BANDS
+
         # --- layer 1: bell wall ----------------------------------------
         self._wall_group = displayio.Group()
         self._wall_group.hidden = True
@@ -228,7 +252,7 @@ class Screen:
         # intra-layer order is therefore immaterial.
         self._badges.append(self._nolink)
 
-        for layer in (self._rain_group, self._wall_group,
+        for layer in (self._rain_group, self._spectrum_group, self._wall_group,
                       self._marquee_group, self._badges):
             self.group.append(layer)
         display.root_group = self.group
@@ -257,7 +281,10 @@ class Screen:
         can ever produce a blank panel.
         """
         show_wall = self._weather == "ringing" and bool(self._wall_layout)
-        _set_hidden(self._rain_group, show_wall)
+        show_spectrum = km_spectrum.visible(
+            self._spectrum.active, self._weather, show_wall)
+        _set_hidden(self._rain_group, show_wall or show_spectrum)
+        _set_hidden(self._spectrum_group, not show_spectrum)
         _set_hidden(self._wall_group, not show_wall)
         _set_hidden(self._nolink, self._weather != "nolink")
 
@@ -364,8 +391,42 @@ class Screen:
         finally:
             self._display.auto_refresh = True
 
+    def set_spectrum(self, msg, now):
+        # State only. Drawing and expiry are gated by the independent clock.
+        self._spectrum.receive(msg, now)
+
+    def _tick_spectrum(self, now):
+        if not self._spectrum_clock.advance(now):
+            return
+        self._spectrum.advance(now)
+        show_wall = self._weather == "ringing" and bool(self._wall_layout)
+        visible = km_spectrum.visible(self._spectrum.active, self._weather, show_wall)
+        # A hidden/static spectrum causes no hardware writes. Prepaint before
+        # revealing so resuming music never flashes an old frame.
+        changes = []
+        if visible:
+            for col in range(km_spectrum.BANDS):
+                pair = (self._spectrum.bars[col], self._spectrum.peaks[col])
+                if pair != self._spectrum_drawn[col]:
+                    changes.append((col, pair))
+        if not changes and visible == (not self._spectrum_group.hidden):
+            return
+        self._display.auto_refresh = False
+        try:
+            for col, pair in changes:
+                old = self._spectrum_drawn[col]
+                for row in range(km_spectrum.LEVELS):
+                    value = km_spectrum.tile(pair[0], pair[1], row)
+                    if value != km_spectrum.tile(old[0], old[1], row):
+                        self._spectrum_grid[col, row] = value
+                self._spectrum_drawn[col] = pair
+            self._sync_layers()
+        finally:
+            self._display.auto_refresh = True
+
     # ---- animation ------------------------------------------------------
     def tick(self, now):
+        self._tick_spectrum(now)
         # ALL display mutation below is gated behind the frame clock -- the
         # main loop is unthrottled (docs/pad-timing.md section 1), so
         # anything outside this gate would dirty the panel at loop frequency.

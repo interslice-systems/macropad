@@ -50,6 +50,9 @@ class Cockpit(App):
 
     def on_msg(self, msg):
         t = msg["t"]
+        if t == "spectrum":
+            self.screen.set_spectrum(msg, ticks_ms())
+            return     # twenty audio frames/s must not repaint the key deck
         if t == "ws":
             self.ws = msg
         elif t == "ctx":
