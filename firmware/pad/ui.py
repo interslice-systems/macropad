@@ -433,7 +433,8 @@ class Screen:
                 if pair != self._spectrum_drawn[col]:
                     changes.append((col, pair))
         text = self._readout.frame(now) if visible else self._media_drawn
-        text = tuple(line.ljust(km_stereo.COLS) for line in text)
+        # CircuitPython omits str.ljust; slicing/concatenation works on both.
+        text = tuple((line + ' ' * km_stereo.COLS)[:km_stereo.COLS] for line in text)
         if not changes and text == self._media_drawn and visible == (not self._spectrum_group.hidden):
             return
         self._display.auto_refresh = False
