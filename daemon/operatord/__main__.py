@@ -1,4 +1,4 @@
-"""keymakerd: supervises serial link, Hyprland stream, theme watcher."""
+"""operatord: supervises serial link, Hyprland stream, theme watcher."""
 import asyncio
 import json
 import os
@@ -22,11 +22,11 @@ CTX_NAME_MAX = 20
 
 @dataclass
 class Config:
-    device: str = os.environ.get("KEYMAKER_DEVICE", "/dev/keymaker-data")
+    device: str = os.environ.get("OPERATOR_DEVICE", "/dev/operator-data")
     runtime_dir: Path = Path(os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000"))
     home: Path = Path.home()
-    state_dir: Path = Path(os.environ.get("KEYMAKER_STATE_DIR")
-                           or Path.home() / ".local/state/keymaker")
+    state_dir: Path = Path(os.environ.get("OPERATOR_STATE_DIR")
+                           or Path.home() / ".local/state/operator")
 
 
 class Supervisor:
@@ -56,7 +56,7 @@ class Supervisor:
         def _done(t):
             self._tasks.discard(t)
             if not t.cancelled() and t.exception() is not None:
-                print(f"keymakerd: {what} failed: {t.exception()!r}", flush=True)
+                print(f"operatord: {what} failed: {t.exception()!r}", flush=True)
 
         task.add_done_callback(_done)
 
@@ -66,7 +66,7 @@ class Supervisor:
                 "screencast": self.state.screencast}
 
     async def _on_link_up(self):
-        self.link.send({"t": "hello", "host": "keymakerd", "proto": 1})
+        self.link.send({"t": "hello", "host": "operatord", "proto": 1})
         if self.palette:
             self.link.send(self.palette)
         for m in self.state.snapshot():
@@ -109,7 +109,7 @@ class Supervisor:
                 workspace = n + 1
                 if msg.get("act") == "hold":
                     # Holds are rare and destructive; log for forensics.
-                    print(f"keymakerd: hold key {n} -> movetoworkspacesilent {workspace}",
+                    print(f"operatord: hold key {n} -> movetoworkspacesilent {workspace}",
                           flush=True)
                     cmd = (f'dispatch hl.dsp.window.move({{ workspace = "{workspace}", '
                            'follow = false })')
@@ -129,7 +129,7 @@ class Supervisor:
             try:
                 await hyprland.request(self._instance, cmd)
             except OSError as e:
-                print(f"keymakerd: dispatch failed ({e!r}): {cmd}", flush=True)
+                print(f"operatord: dispatch failed ({e!r}): {cmd}", flush=True)
 
     async def _activate_item(self, offset):
         """Tap on a bottom key: focus the item's Hyprland client if it isn't
@@ -147,7 +147,7 @@ class Supervisor:
                 f'dispatch hl.dsp.focus({{ window = "address:{addr}" }})')
         if "s" in item:
             if not await tmux.select_window(item["s"], item["i"]):
-                print(f"keymakerd: select-window {item['s']}:{item['i']} failed",
+                print(f"operatord: select-window {item['s']}:{item['i']} failed",
                       flush=True)
 
     # ---- hyprland side --------------------------------------------
@@ -224,7 +224,7 @@ class Supervisor:
             associations = await tmux.list_local_clients()
             if associations is None:
                 if not self._resolver_failed:
-                    print("keymakerd: tmux-local-clients failed", flush=True)
+                    print("operatord: tmux-local-clients failed", flush=True)
                 self._resolver_failed = True
                 associations = []
             else:
@@ -246,7 +246,7 @@ class Supervisor:
                 self.ctx_msg = msg
                 self.link.send(msg)
         except Exception as e:
-            print(f"keymakerd: ctx poll failed: {e!r}", flush=True)
+            print(f"operatord: ctx poll failed: {e!r}", flush=True)
 
     async def run(self):
         theme = ThemeWatcher(self.cfg.home, self._on_palette)

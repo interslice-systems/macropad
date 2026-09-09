@@ -3,7 +3,7 @@ import sys
 
 import km_proto
 from km_spectrum import BANDS, Spectrum, tile, visible
-from keymakerd import spectrum
+from operatord import spectrum
 
 
 def msg(level, active=True):

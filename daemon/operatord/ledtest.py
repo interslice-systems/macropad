@@ -100,10 +100,10 @@ async def watch(path, send, interval=1.0):
                     # observable: the pad is the only feedback channel, and
                     # "did the frame leave the host?" is the first question
                     # when it looks wrong.
-                    print(f"keymakerd: ledtest frame sent (hold={hold}s)", flush=True)
+                    print(f"operatord: ledtest frame sent (hold={hold}s)", flush=True)
         except OSError:
             pass
         except ValueError as e:
-            print(f"keymakerd: ledtest bad spool ignored: {e}", flush=True)
+            print(f"operatord: ledtest bad spool ignored: {e}", flush=True)
             last = st.st_mtime          # don't re-log the same bad file every tick
         await asyncio.sleep(interval)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from keymakerd.theme import load_palette, resolve_theme_dir
+from operatord.theme import load_palette, resolve_theme_dir
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

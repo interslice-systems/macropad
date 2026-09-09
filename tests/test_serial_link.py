@@ -4,7 +4,7 @@ import os
 import pytest
 
 import km_proto
-from keymakerd.serial_link import SerialLink
+from operatord.serial_link import SerialLink
 
 
 @pytest.fixture

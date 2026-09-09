@@ -1,13 +1,13 @@
 [Unit]
-Description=Keymaker macropad daemon
+Description=Operator macropad daemon
 After=graphical-session.target
 PartOf=graphical-session.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/python -m keymakerd
-Environment=PYTHONPATH=%h/src/keymaker/shared:%h/src/keymaker/daemon
+ExecStart=/usr/bin/python -m operatord
+Environment=PYTHONPATH=%h/src/operator/shared:%h/src/operator/daemon
 Restart=always
 RestartSec=2
 

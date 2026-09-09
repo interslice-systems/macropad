@@ -1,4 +1,4 @@
-# keymaker
+# operator
 
 CircuitPython firmware and a small host daemon that turn an
 [Adafruit MacroPad RP2040](https://www.adafruit.com/product/5128) into a desk
@@ -6,7 +6,13 @@ companion for an [Omarchy](https://omarchy.org) / Hyprland desktop: a physical
 switchboard of open terminal windows, dressed in whatever Omarchy theme is
 active.
 
-Named for the Matrix's Keymaker: a pad of keys that opens doors.
+Named for the Matrix's operator: the person at the console who stays aboard
+the ship. Twelve keys in a telephone layout; your desktop on the other end.
+
+Previously called **Keymaker**. Historical design documents keep that name;
+the checkout, daemon and user service are now `operator`, `operatord` and
+`operator.service`. The shared `km_*` modules retain their wire-compatible
+internal names.
 
 ## What it does
 
@@ -55,7 +61,7 @@ Two programs, one protocol, each side optional to the other:
   latency-critical or standalone: drawing, LEDs, key handling. Unplug the
   daemon and the pad keeps its rain running with a small `no link` tag
   instead of pretending.
-- **Daemon** (`keymakerd`, Python ≥3.11, stdlib + pyserial) owns everything
+- **Daemon** (`operatord`, Python ≥3.11, stdlib + pyserial) owns everything
   host-shaped: Hyprland state in and actuation out (via Hyprland's IPC
   sockets — no synthetic keystrokes), tmux window state, and the Omarchy
   palette.
@@ -84,19 +90,19 @@ in [docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-wea
 ## Install
 
 ```sh
-git clone https://github.com/chris-biagini/keymaker.git
-cd keymaker
+git clone https://github.com/chris-biagini/operator.git
+cd operator
 ./system/install.sh   # rsyncs firmware to CIRCUITPY, installs the user unit
 ```
 
 The installer prints one manual step: a udev rule (stable
-`/dev/keymaker-*` names, and it keeps ModemManager off the serial ports)
+`/dev/operator-*` names, and it keeps ModemManager off the serial ports)
 that needs root to place. A stock pad still shows its CIRCUITPY drive, so the
 first install works before the rule is in place; every later deploy needs it.
 
 ## Audio spectrum
 
-`keymakerd` supervises a headless CAVA child using `daemon/keymakerd/cava.conf`.
+`operatord` supervises a headless CAVA child using `daemon/operatord/cava.conf`.
 It monitors the default PipeWire output passively, mixes left/right for display,
 analyses 50 Hz–16 kHz, and sends 16 levels at 20 fps over the existing CDC link.
 The pad draws 16 columns of two-pixel segments and one-pixel peak caps. Caps
@@ -107,8 +113,8 @@ The spectrum replaces only the rain: bell walls take over, workspace numerals
 and REC/submap badges remain above it. Rain returns after two seconds with no
 visible audio energy, within 1.5 seconds of missing spectrum packets, or on link
 loss. CAVA is stopped while the pad is disconnected and restarted after failure;
-its stderr goes to `journalctl --user -u keymaker.service`. No new user unit or
-personal CAVA config is needed. `systemctl --user restart keymaker` reloads host
+its stderr goes to `journalctl --user -u operator.service`. No new user unit or
+personal CAVA config is needed. `systemctl --user restart operator` reloads host
 changes; renderer changes also require `system/deploy-firmware.sh`.
 
 Protocol: `{"t":"spectrum","active":true,"bars":[...16 integers 0–16...]}`.

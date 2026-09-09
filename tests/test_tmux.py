@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from keymakerd import tmux
+from operatord import tmux
 
 
 LOCAL = [{
