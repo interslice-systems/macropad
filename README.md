@@ -90,7 +90,7 @@ in [docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-wea
 ## Install
 
 ```sh
-git clone https://github.com/chris-biagini/operator.git
+git clone https://github.com/interslice-systems/operator.git
 cd operator
 ./system/install.sh   # rsyncs firmware to CIRCUITPY, installs the user unit
 ```
