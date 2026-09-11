@@ -4,7 +4,7 @@ CircuitPython firmware and a small host daemon that turn an
 [Adafruit MacroPad RP2040](https://www.adafruit.com/product/5128) into a desk
 companion for an [Omarchy](https://omarchy.org) / Hyprland desktop: a physical
 switchboard of open terminal windows, dressed in whatever Omarchy theme is
-active.
+active. Desktop stand here: https://www.printables.com/model/1838935-adafruit-macropad-rp2040-stand
 
 Named for the Matrix's operator: the person at the console who stays aboard
 the ship. Twelve keys in a telephone layout; your desktop on the other end.
