@@ -154,6 +154,7 @@ class Supervisor:
         station = self.tuner.settle(asyncio.get_running_loop().time())
         if station is not None:
             print(f"operatord: knob -> lofi play {station}", flush=True)
+            self.link.send(self.tuner.notice("LOADING"))
             await self.lofi.play(station)
 
     async def _on_push(self):
@@ -164,8 +165,10 @@ class Supervisor:
         action, station = self.tuner.push()
         print(f"operatord: knob push -> lofi {action} {station or ''}", flush=True)
         if action == "stop":
+            self.link.send(self.tuner.notice("STOPPING", hold=4))
             await self.lofi.stop()
         elif station is not None:
+            self.link.send(self.tuner.notice("LOADING"))
             await self.lofi.play(station)
         self.tuner.last_dial = None            # next turn re-reads the player
 

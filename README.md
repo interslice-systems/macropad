@@ -30,15 +30,15 @@ A single app: **Cockpit**, the split deck.
   ordinary Kitty, foot, and Ghostty windows work without special classes or
   launchers. Focused full-bright, others dimmed, bell pulsing. Tap to jump to
   that window.
-- The OLED shows a framed 16-band segmented audio spectrum during playback,
-  with track/artist text, a frequency legend and one-second peak-hold caps. Two seconds of silence returns it to sparse
-  digital rain. Audio comes from the default PipeWire output (including
-  Lofi Girl/mpv); no microphone or player-specific plugin is needed. And
-  when terminal bells ring elsewhere, a wall of workspace numerals sized by
-  recency — the newest bell largest. A workspace switch flashes that
-  workspace's numeral, big and centred, for a moment; REC and submap badges
-  overlay everything while the screen is being captured or a submap is
-  active.
+- **The OLED is a radio.** A stereo faceplate with a framed 16-band
+  segmented audio spectrum, track/artist text, a frequency legend and
+  one-second peak-hold caps. It is always on: silence just leaves the bars
+  flat. Audio comes from the default PipeWire output (including Lofi
+  Girl/mpv); no microphone or player-specific plugin is needed. REC and
+  submap badges overlay it while the screen is being captured or a submap
+  is active. (The digital rain, the bell wall and the workspace-switch
+  numeral were retired 2026-09-13: the deck's blinking keys already carry
+  bells, and the display had a better job.)
 - Urgency runs BEL through tmux and the local terminal/compositor to the pad,
   entirely in-band, so it works the same over mosh as it does locally. For an
   associated terminal, tmux's per-window bell replaces the coarse terminal
@@ -67,7 +67,7 @@ Two programs, one protocol, each side optional to the other:
 
 - **Firmware** (CircuitPython 10.x + `adafruit_macropad`) owns everything
   latency-critical or standalone: drawing, LEDs, key handling. Unplug the
-  daemon and the pad keeps its rain running with a small `no link` tag
+  daemon and the pad keeps its faceplate up with a small `no link` tag
   instead of pretending.
 - **Daemon** (`operatord`, Python ≥3.11, stdlib + pyserial) owns everything
   host-shaped: Hyprland state in and actuation out (via Hyprland's IPC
@@ -81,8 +81,9 @@ Two programs, one protocol, each side optional to the other:
 The split deck's original design lives in
 [docs/specs/2026-08-15-cockpit-v2-design.md](docs/specs/2026-08-15-cockpit-v2-design.md)
 (the 2026-08-22 switchboard-operator spec describes a sticky-slot design that
-was tried and reverted the same day); the OLED's weather display design lives
-in [docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-weather-design.md).
+was tried and reverted the same day); the retired weather display (rain, bell
+wall, marquee) is kept as history in
+[docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-weather-design.md).
 
 ## Requirements
 
@@ -90,7 +91,7 @@ in [docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-wea
 - Linux host running Omarchy (3.x or 4.x) with Hyprland
 - Python ≥3.11 and `python-pyserial` on the host
 - `cava` with PipeWire support for the audio spectrum (`omarchy pkg add cava`);
-  without it the normal rain and controls continue working
+  without it the faceplate and controls continue working
 - One terminal-emulator process per window. Kitty single-instance mode, foot
   server mode, Ghostty single-instance mode, and equivalent shared-process
   arrangements cannot be associated reliably and are unsupported.
@@ -121,10 +122,9 @@ hold for 1000 ms, then drop one wire level every 80 ms (one visible segment
 per two levels). This is an automatically
 scaled music visualizer, not a calibrated dB meter.
 
-The spectrum replaces only the rain: bell walls take over, workspace numerals
-and REC/submap badges remain above it. Rain returns after two seconds with no
-visible audio energy, within 1.5 seconds of missing spectrum packets, or on link
-loss. CAVA is stopped while the pad is disconnected and restarted after failure;
+The faceplate is the base layer; only REC/submap badges sit above it. The
+bars go flat after two seconds with no visible audio energy, within 1.5
+seconds of missing spectrum packets, or on link loss. CAVA is stopped while the pad is disconnected and restarted after failure;
 its stderr goes to `journalctl --user -u operator.service`. No new user unit or
 personal CAVA config is needed. `systemctl --user restart operator` reloads host
 changes; renderer changes also require `system/deploy-firmware.sh`.
@@ -134,7 +134,7 @@ Active frames refresh freshness even when unchanged; silence sends one inactive
 transition. Partial CAVA frames retain alignment, old complete frames are
 coalesced, and decorative serial packets drop when the output queue backs up.
 Firmware builds four tiny bar tiles and a 5×7 text font once, and only writes changed cells, at 20 fps;
-hidden spectrum/rain layers do no drawing. Hardware smoothness and physical
+an unchanged frame does no drawing. Hardware smoothness and physical
 key response still require a bench check; host tests cannot establish those.
 
 ### Now playing
@@ -154,8 +154,11 @@ uses `OPERATOR`. Metadata is ASCII-normalized, bounded to 96 characters per
 field and refreshed as a heartbeat; 6.5 seconds without an update clears it.
 
 Protocol: `{"t":"media","title":"So What","artist":"Miles Davis"}`.
-The packet is included in the reconnect snapshot and metadata never decides
-whether to show the analyzer: actual output energy does.
+The packet is included in the reconnect snapshot. The knob's `tune` packet
+(`{"t":"tune","title":...,"line":...,"hold":seconds}`) overrides both lines for
+`hold` seconds — `TUNING` / `PUSH TO PLAY` while turning, `LOADING` once a
+switch is committed, `STOPPING` on a push — and a new title from the player
+cancels it early, so `LOADING` clears the moment the stream is audible.
 
 Open [the animated OLED preview](docs/stereo-preview.html) locally in a browser.
 It uses the same font and bezel pixels as firmware, with editable title/artist,

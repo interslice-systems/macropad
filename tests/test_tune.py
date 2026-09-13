@@ -1,5 +1,4 @@
 """The faceplate previews the station under the knob."""
-import km_spectrum
 from km_stereo import Readout
 
 
@@ -27,8 +26,14 @@ def test_tune_rejects_junk_and_shows_only_the_first_page_of_long_names():
     assert state.frame(3000) == ('SYSTEM AUDIO', 'OPERATOR')
 
 
-def test_faceplate_shows_while_tuning_even_in_silence():
-    assert not km_spectrum.visible(False, 'quiet', False)
-    assert km_spectrum.visible(False, 'quiet', False, tuning=True)
-    assert not km_spectrum.visible(False, 'nolink', False, tuning=True)
-    assert not km_spectrum.visible(True, 'quiet', True, tuning=True)
+def test_a_new_title_from_the_player_cancels_a_pending_tune_line():
+    state = Readout(lambda a, b: a - b)
+    state.receive({'title': 'synth ambient radio', 'artist': 'Lofi Girl'}, 0)
+    state.tune({'title': 'jazz lofi radio', 'line': 'LOADING', 'hold': 10}, 100)
+    state.receive({'title': 'synth ambient radio', 'artist': 'Lofi Girl'}, 2000)   # same title: still loading
+    assert state.frame(2000) == ('JAZZ LOFI RADIO', 'LOADING')
+    state.receive({'title': '', 'artist': ''}, 3000)                                # empty gap while resolving
+    assert state.frame(3000) == ('JAZZ LOFI RADIO', 'LOADING')
+    state.receive({'title': 'jazz lofi radio beats to chill', 'artist': 'Lofi Girl'}, 4000)
+    assert state.frame(4000) == ('JAZZ LOFI RADIO', 'LOFI GIRL')
+    assert not state.tuning(4000)

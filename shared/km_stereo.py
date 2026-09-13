@@ -127,6 +127,8 @@ class Readout:
         value = (title, artist)
         stale = self.received is None or self.diff(now,self.received) >= STALE_MS
         self.received = now
+        if title and value != self.value:
+            self.tune_until = None      # the player caught up: LOADING is over
         if value != self.value or stale:
             self.epoch = now
             self.value = value

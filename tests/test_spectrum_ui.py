@@ -49,7 +49,7 @@ class Label:
         self.hidden = False
 
 
-def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
+def test_real_renderer_faceplate_is_the_whole_display(monkeypatch):
     monkeypatch.setitem(sys.modules, 'displayio', types.SimpleNamespace(
         Group=Group, Bitmap=Bitmap, TileGrid=TileGrid, Palette=Palette))
     monkeypatch.setitem(sys.modules, 'terminalio', types.SimpleNamespace(FONT=None))
@@ -65,57 +65,38 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
     # CircuitPython's dict order differs: the actual pad's tile zero was '/'.
     glyphs = ui.km_stereo.GLYPHS
     monkeypatch.setattr(ui.km_stereo, 'GLYPHS', '/' + glyphs.replace('/', ''))
-    monkeypatch.setattr(ui, '_rain_sheet', lambda font: (Bitmap(198,12,2),6,12,16))
     display = types.SimpleNamespace(auto_refresh=True)
     screen = ui.Screen(display)
+    assert not hasattr(screen, '_rain_group') and not hasattr(screen, '_wall_group')
+    assert not screen._spectrum_group.hidden           # always the base layer
     for text_grid in screen._media_grids:
         assert all(ui.km_stereo.GLYPHS[text_grid[col, 0]] == ' ' for col in range(20))
-    screen.set_weather('calm')
-    screen.set_spectrum({'active': True, 'bars': [8]*16}, 0)
+    screen.set_link(False)
+    assert not screen._nolink.hidden and not screen._spectrum_group.hidden
+    screen.set_link(True)
+    assert screen._nolink.hidden
     screen.tick(50)
-    assert screen._rain_group.hidden
-    assert not screen._spectrum_group.hidden
+    assert screen._media_drawn == ('SYSTEM AUDIO'.ljust(20), 'OPERATOR'.ljust(20))
+    screen.set_spectrum({'active': True, 'bars': [8]*16}, 60)
+    screen.tick(100)
     grid = screen._spectrum_grid
     assert grid.values[0,4] == 3   # top segment and cap
-    screen.set_media({'title':'Summer lofi radio','artist':'Lofi Girl'},50)
-    screen.tick(100)
-    assert screen._media_drawn == ('SUMMER LOFI RADIO   '.ljust(20), 'LOFI GIRL'.ljust(20))
+    screen.set_media({'title':'Summer lofi radio','artist':'Lofi Girl'},100)
+    screen.tick(150)
+    assert screen._media_drawn == ('SUMMER LOFI RADIO'.ljust(20), 'LOFI GIRL'.ljust(20))
     for line, text_grid in zip(screen._media_drawn, screen._media_grids):
         assert ''.join(ui.km_stereo.GLYPHS[text_grid[col, 0]] for col in range(20)) == line
     text_writes = sum(g.writes for g in screen._media_grids)
     writes = grid.writes
-    screen.tick(150)
+    screen.tick(200)
     assert sum(g.writes for g in screen._media_grids) == text_writes
     assert grid.writes == writes  # no mutation of an identical frame
-    screen.set_bells([3])
-    screen.set_weather('ringing')
-    assert not screen._wall_group.hidden and screen._spectrum_group.hidden
-    screen.set_spectrum({'active': True, 'bars': [12]*16}, 110)
-    screen.tick(150)
-    assert grid.writes == writes  # hidden spectrum does no drawing
-    assert sum(g.writes for g in screen._media_grids) == text_writes
-    screen.set_bells([])
-    screen.set_weather('calm')
-    screen.tick(200)
-    assert not screen._spectrum_group.hidden and grid.writes > writes
-    screen.marquee(4)
-    assert not screen._marquee_group.hidden
-    assert list(screen.group).index(screen._marquee_group) > list(screen.group).index(screen._spectrum_group)
-    screen.tick(1650)
-    assert screen._spectrum_group.hidden and not screen._rain_group.hidden
-    screen.set_spectrum({'active': True, 'bars': [4]*16}, 1700)
-    screen.set_weather('nolink')
-    screen.tick(1750)
-    assert screen._spectrum_group.hidden and not screen._rain_group.hidden
+    screen.set_tune({'title': 'jazz lofi radio', 'line': 'TUNING', 'hold': 3}, 210)
+    screen.tick(250)
+    assert screen._media_drawn == ('JAZZ LOFI RADIO'.ljust(20), 'TUNING'.ljust(20))
+    screen.set_spectrum({'active': False, 'bars': [0]*16}, 260)
+    screen.tick(300)
+    assert grid.values[0,4] == 0 and not screen._spectrum_group.hidden   # silent, still framed
+    screen.set_flags(True, 'resize')
+    assert not screen._rec.hidden and not screen._submap.hidden
     assert display.auto_refresh
-    # Tuning the knob shows the faceplate with the candidate even in silence.
-    screen.set_weather('calm')
-    screen.set_spectrum({'active': False, 'bars': [0]*16}, 4000)
-    screen.tick(4050)
-    assert screen._spectrum_group.hidden
-    screen.set_tune({'title': 'jazz lofi radio', 'line': 'PUSH TO PLAY', 'hold': 3}, 4060)
-    screen.tick(4100)
-    assert not screen._spectrum_group.hidden and screen._rain_group.hidden
-    assert screen._media_drawn == ('JAZZ LOFI RADIO'.ljust(20), 'PUSH TO PLAY'.ljust(20))
-    screen.tick(7100)
-    assert screen._spectrum_group.hidden and not screen._rain_group.hidden

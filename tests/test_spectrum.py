@@ -2,7 +2,7 @@ import asyncio
 import sys
 
 import km_proto
-from km_spectrum import BANDS, Spectrum, tile, visible
+from km_spectrum import BANDS, Spectrum, tile
 from operatord import spectrum
 
 
@@ -64,10 +64,6 @@ def test_segment_geometry_and_alert_priority():
     assert [tile(2, 4, r) for r in range(16)] == [0] * 12 + [2, 0, 1, 1]
     assert tile(16, 16, 0) == 3
     assert all(tile(0, 0, r) == 0 for r in range(16))
-    assert visible(True, "calm", False)
-    assert not visible(True, "ringing", True)
-    assert not visible(True, "nolink", False)
-    assert not visible(False, "calm", False)
 
 
 def test_binary_chunks_keep_alignment_and_discard_old_complete_frames():

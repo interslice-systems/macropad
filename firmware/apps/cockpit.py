@@ -1,11 +1,10 @@
 """Cockpit: the split deck. Keys 0-5 = workspaces 1-6 in their colorhash
 colors; keys 6-11 = tmux windows associated with local terminals on the active
-workspace, then unassociated terminals; OLED = weather display (rain / bell
-wall / marquee, see docs/specs/2026-08-23-oled-weather-design.md)."""
+workspace, then unassociated terminals; OLED = the radio faceplate (spectrum
+plus the Lofi Girl readout, see pad/ui.py and km_stereo); knob = station dial."""
 from adafruit_ticks import ticks_diff, ticks_ms
 
 import km_palette
-import km_weather
 from km_keys import KeyTracker
 
 from pad.framework import App
@@ -22,8 +21,8 @@ class Cockpit(App):
                    "names": {}}
         self.ctx = {"t": "ctx", "items": []}
         # `win` and `ws["names"]` are accepted and ignored: the daemon still
-        # sends both (the protocol is unchanged) but the weather display has
-        # no consumer for either. Don't go hunting for one.
+        # sends both (the protocol is unchanged) but the OLED has no consumer
+        # for either. Don't go hunting for one.
         self.win = {"cls": "", "title": ""}
         self.flags = {"submap": "", "screencast": False}
         self.palette = dict(km_palette.DEFAULT)
@@ -34,10 +33,6 @@ class Cockpit(App):
         # at zero writes per tick instead of a clear-then-repaint strobe. None
         # forces a full first paint.
         self._led_frame = [None] * KEYS
-        # Stamps a workspace on first sight of its bell (km_weather), keyed by
-        # workspace int; drives the bell-wall recency order.
-        self._stamps = {}
-        self._last_active = None
 
     def on_show(self):
         self.tracker = KeyTracker(hold_ms=400, diff=ticks_diff)
@@ -90,7 +85,7 @@ class Cockpit(App):
             self.link.send({"t": "key", "n": n, "act": "hold"})
         self._draw_leds(now)          # every pass: urgent pulse animation
         self._sync_screen(now)        # cheap: every setter diffs internally
-        self.screen.tick(now)         # rain + marquee frame clock
+        self.screen.tick(now)         # spectrum frame clock
 
     # ---- drawing --------------------------------------------------
     def _ws_state(self, n):
@@ -131,27 +126,12 @@ class Cockpit(App):
 
     def _sync_screen(self, now):
         if not self.link.up:
-            self._stamps.clear()
-            self._last_active = None
-            self.screen.set_weather("nolink")
+            self.screen.set_link(False)
             self.screen.set_flags(False, "")
             return
-        urgent = self.ws.get("urgent") or []   # None-proof against bad msgs
-        km_weather.update_stamps(self._stamps, urgent, now)
-        # set_bells BEFORE set_weather: the wall must be populated before the
-        # weather flip reveals it, or the panel can scan out an empty frame.
-        self.screen.set_bells(km_weather.bell_order(self._stamps, ticks_diff))
-        # link_up=True is a literal, not an oversight: the link-down case
-        # returned above, so by here the link is up by construction.
-        self.screen.set_weather(km_weather.weather(urgent, True))
+        self.screen.set_link(True)
         self.screen.set_flags(bool(self.flags.get("screencast")),
                               self.flags.get("submap") or "")
-        active = self.ws.get("active")
-        if (active is not None and self._last_active is not None
-                and active != self._last_active):
-            self.screen.marquee(active)
-        if active is not None:
-            self._last_active = active
 
     def _draw_all(self, now):
         self._draw_leds(now)

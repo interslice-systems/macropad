@@ -64,6 +64,16 @@ def test_sync_is_wanted_at_the_start_of_each_browse_not_every_detent():
     assert t.needs_sync(now=6.0)
 
 
+def test_settle_is_quick_by_default_and_notices_name_the_cursor_station():
+    t = Tuner()
+    assert t.settle_s == 0.4
+    t.sync(STATIONS, current_id='bbb', running=True)
+    assert t.notice('LOADING') == {'t': 'tune', 'title': 'sleep lofi radio', 'line': 'LOADING', 'hold': 10}
+    assert t.notice('STOPPING', hold=4)['hold'] == 4
+    t.sync([], current_id='', running=False)
+    assert t.notice('LOADING') is None
+
+
 def test_titles_are_squeezed_for_the_faceplate():
     t = Tuner()
     t.sync([{'id': 'x', 'title': 'lofi hip hop radio 📚 beats to relax/study to'},

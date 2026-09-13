@@ -520,3 +520,5 @@ def test_dial_previews_then_plays_once_and_push_stops(monkeypatch, tmp_path):
     assert calls1 == []
     assert calls2 == [("play", "bbb")]
     assert calls3 == [("play", "bbb"), ("stop",)]
+    assert [m["line"] for m in sent][2:] == ["TUNING", "LOADING", "STOPPING"]
+    assert sent[-1]["title"] == "sleep"

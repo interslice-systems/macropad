@@ -13,7 +13,8 @@ import shutil
 
 from . import media
 
-HOLD_S = 3
+HOLD_S = 3          # a preview while turning
+NOTICE_S = 10       # LOADING: cleared early by the player's new title
 PLUGIN_BIN = os.path.expanduser("~/.config/omarchy/plugins/interslice.lofi/bin/lofi")
 
 
@@ -22,7 +23,7 @@ def find_script():
 
 
 class Tuner:
-    def __init__(self, settle_s=0.6, resync_s=5.0):
+    def __init__(self, settle_s=0.4, resync_s=5.0):
         self.settle_s = settle_s
         self.resync_s = resync_s
         self.stations = []
@@ -42,14 +43,20 @@ class Tuner:
         self.cursor = ids.index(current_id) if current_id in ids else (0 if ids else None)
         self.origin = self.cursor
 
+    def notice(self, line, hold=NOTICE_S):
+        """A faceplate line about the cursor station: TUNING, LOADING, STOPPING."""
+        if self.cursor is None:
+            return None
+        return {"t": "tune", "title": media.clean(self.stations[self.cursor].get("title", "")),
+                "line": line, "hold": hold}
+
     def dial(self, delta, now):
         self.last_dial = now
         if self.cursor is None:
             return None
         self.cursor = (self.cursor + delta) % len(self.stations)
         self.deadline = now + self.settle_s
-        return {"t": "tune", "title": media.clean(self.stations[self.cursor].get("title", "")),
-                "line": "TUNING" if self.running else "PUSH TO PLAY", "hold": HOLD_S}
+        return self.notice("TUNING" if self.running else "PUSH TO PLAY", HOLD_S)
 
     def settle(self, now):
         if self.deadline is None or now < self.deadline:
