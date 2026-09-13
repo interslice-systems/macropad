@@ -286,6 +286,7 @@ class Screen:
         self._clock = km_weather.FrameClock(FRAME_MS, ticks_ms(),
                                             ticks_add, ticks_diff)
         self._rain_acc = 0
+        self._tuning = False    # knob preview holds the faceplate open; refreshed per spectrum tick
 
     # ---- state ---------------------------------------------------------
     def _sync_layers(self):
@@ -303,7 +304,7 @@ class Screen:
         """
         show_wall = self._weather == "ringing" and bool(self._wall_layout)
         show_spectrum = km_spectrum.visible(
-            self._spectrum.active, self._weather, show_wall)
+            self._spectrum.active, self._weather, show_wall, self._tuning)
         _set_hidden(self._rain_group, show_wall or show_spectrum)
         _set_hidden(self._spectrum_group, not show_spectrum)
         _set_hidden(self._wall_group, not show_wall)
@@ -415,6 +416,9 @@ class Screen:
     def set_media(self, msg, now):
         self._readout.receive(msg, now)
 
+    def set_tune(self, msg, now):
+        self._readout.tune(msg, now)
+
     def set_spectrum(self, msg, now):
         # State only. Drawing and expiry are gated by the independent clock.
         self._spectrum.receive(msg, now)
@@ -424,7 +428,9 @@ class Screen:
             return
         self._spectrum.advance(now)
         show_wall = self._weather == "ringing" and bool(self._wall_layout)
-        visible = km_spectrum.visible(self._spectrum.active, self._weather, show_wall)
+        self._tuning = self._readout.tuning(now)
+        visible = km_spectrum.visible(self._spectrum.active, self._weather, show_wall,
+                                      self._tuning)
         # A hidden/static spectrum causes no hardware writes. Prepaint before
         # revealing so resuming music never flashes an old frame.
         changes = []

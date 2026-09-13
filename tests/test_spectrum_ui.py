@@ -108,3 +108,14 @@ def test_real_renderer_audio_rain_alerts_and_static_writes(monkeypatch):
     screen.tick(1750)
     assert screen._spectrum_group.hidden and not screen._rain_group.hidden
     assert display.auto_refresh
+    # Tuning the knob shows the faceplate with the candidate even in silence.
+    screen.set_weather('calm')
+    screen.set_spectrum({'active': False, 'bars': [0]*16}, 4000)
+    screen.tick(4050)
+    assert screen._spectrum_group.hidden
+    screen.set_tune({'title': 'jazz lofi radio', 'line': 'PUSH TO PLAY', 'hold': 3}, 4060)
+    screen.tick(4100)
+    assert not screen._spectrum_group.hidden and screen._rain_group.hidden
+    assert screen._media_drawn == ('JAZZ LOFI RADIO'.ljust(20), 'PUSH TO PLAY'.ljust(20))
+    screen.tick(7100)
+    assert screen._spectrum_group.hidden and not screen._rain_group.hidden

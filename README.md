@@ -44,7 +44,15 @@ A single app: **Cockpit**, the split deck.
   associated terminal, tmux's per-window bell replaces the coarse terminal
   bell only when their exact Hyprland addresses match; this prevents duplicate
   indications without hiding bells from unassociated terminals.
-- The knob is currently unassigned.
+- **The knob tunes Lofi Girl.** Turning browses the stations the
+  [interslice.lofi](https://github.com/interslice-systems/lofi) bar widget
+  knows about, in its list order, and the faceplate shows the candidate
+  name while you turn (even in silence). While a stream is playing, the
+  switch lands about half a second after the knob rests — an in-place fade,
+  not a restart. While stopped, turning only previews. Pushing the knob
+  starts the previewed station or stops the player; start and stop are rare,
+  which suits a push that is awkward to reach. The daemon drives it all
+  through `bin/lofi`; the pad only reports detents and the push.
 
 ### Theme following
 

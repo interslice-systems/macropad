@@ -116,6 +116,8 @@ class Readout:
         self.epoch = 0
         self.value = ('', '')
         self.lines = (['SYSTEM AUDIO'], ['OPERATOR'])
+        self.tune_until = None
+        self.tune_lines = None
 
     def receive(self, msg, now):
         title, artist = msg.get('title'), msg.get('artist')
@@ -131,7 +133,24 @@ class Readout:
             self.lines = (pages(title or 'SYSTEM AUDIO'), pages(artist or 'OPERATOR'))
         return True
 
+    def tune(self, msg, now):
+        """Preview the station under the knob for `hold` seconds."""
+        title, line, hold = msg.get('title'), msg.get('line'), msg.get('hold')
+        if any(not isinstance(v, str) or len(v) > 96 or
+               any(not 32 <= ord(c) < 127 for c in v) for v in (title,line)):
+            return False
+        if type(hold) is not int or not 0 < hold <= 30:
+            return False
+        self.tune_until = now + hold * 1000
+        self.tune_lines = (pages(title)[0], pages(line)[0])   # the first page names the station
+        return True
+
+    def tuning(self, now):
+        return self.tune_until is not None and self.diff(self.tune_until,now) > 0
+
     def frame(self, now):
+        if self.tuning(now):
+            return self.tune_lines
         if self.received is None or self.diff(now,self.received) >= STALE_MS:
             return ('SYSTEM AUDIO', 'OPERATOR')
         page = max(0,self.diff(now,self.epoch)) // PAGE_MS

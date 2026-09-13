@@ -54,5 +54,5 @@ def tile(bar, peak, row):
     return int(level <= bar) | (2 if peak == level else 0)
 
 
-def visible(active, weather, wall):
-    return active and weather != "nolink" and not wall
+def visible(active, weather, wall, tuning=False):
+    return (active or tuning) and weather != "nolink" and not wall

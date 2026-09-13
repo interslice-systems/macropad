@@ -481,3 +481,42 @@ def test_poll_ctx_trims_names_for_the_wire(monkeypatch, tmp_path):
     sent = asyncio.run(scenario())
     (ctx,) = [m for m in sent if m["t"] == "ctx"]
     assert len(ctx["items"][0]["n"]) <= 20
+
+
+def test_dial_previews_then_plays_once_and_push_stops(monkeypatch, tmp_path):
+    sent, calls = [], []
+
+    class FakeLofi:
+        path = "fake"
+        async def stations(self):
+            return [{"id": "aaa", "title": "jazz"}, {"id": "bbb", "title": "sleep"}]
+        async def status(self):
+            return ("aaa", True)
+        async def play(self, station_id):
+            calls.append(("play", station_id))
+        async def stop(self):
+            calls.append(("stop",))
+
+    async def scenario():
+        sup = _supervisor(tmp_path)
+        sup.link = _sent_link(sent)
+        sup.lofi = FakeLofi()
+        sup.tuner.settle_s = 0.1
+        sup._on_pad_msg({"t": "dial", "d": 1})
+        await asyncio.sleep(0.05)
+        sup._on_pad_msg({"t": "dial", "d": 1})      # back to aaa: nothing to do
+        await asyncio.sleep(0.2)
+        first = (list(sent), list(calls))
+        sup._on_pad_msg({"t": "dial", "d": 1})
+        await asyncio.sleep(0.2)
+        second = list(calls)
+        sup._on_pad_msg({"t": "enc", "act": "tap"})
+        await asyncio.sleep(0.05)
+        return first, second, list(calls)
+
+    (sent1, calls1), calls2, calls3 = asyncio.run(scenario())
+    assert [m["title"] for m in sent1] == ["sleep", "jazz"]
+    assert all(m["t"] == "tune" and m["line"] == "TUNING" for m in sent1)
+    assert calls1 == []
+    assert calls2 == [("play", "bbb")]
+    assert calls3 == [("play", "bbb"), ("stop",)]

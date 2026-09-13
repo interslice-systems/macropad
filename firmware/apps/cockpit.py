@@ -56,6 +56,9 @@ class Cockpit(App):
         elif t == "spectrum":
             self.screen.set_spectrum(msg, ticks_ms())
             return     # twenty audio frames/s must not repaint the key deck
+        elif t == "tune":
+            self.screen.set_tune(msg, ticks_ms())
+            return
         if t == "ws":
             self.ws = msg
         elif t == "ctx":
@@ -73,6 +76,14 @@ class Cockpit(App):
             self.tracker.press(n, now)
         elif self.tracker.release(n, now) == "tap":
             self.link.send({"t": "key", "n": n, "act": "tap"})
+
+    def on_dial(self, delta):
+        # The knob is the host's: it browses Lofi Girl stations (operatord/lofi.py).
+        self.link.send({"t": "dial", "d": delta})
+
+    def on_enc(self, pressed, now):
+        if not pressed:
+            self.link.send({"t": "enc", "act": "tap"})
 
     def tick(self, now):
         for n in self.tracker.tick(now):
