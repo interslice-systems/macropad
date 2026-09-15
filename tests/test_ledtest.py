@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from operatord import ledtest
+from macropadd import ledtest
 
 
 def test_to_pixels_matches_the_app_path_with_no_gamma_decode():

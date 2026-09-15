@@ -165,7 +165,7 @@ def ctx_key_color(item, pal, phase=0.0):
 # NOT derived from the PWM-4 comfort floor. That floor is a property of the byte
 # AFTER neopixel's global BRIGHTNESS is applied, which scale() does not include,
 # so no unit test here can assert it. Validate the emitted floor on hardware with
-# daemon/operatord/ledtest.py and led-ramp before treating 0.34 as final.
+# daemon/macropadd/ledtest.py and led-ramp before treating 0.34 as final.
 GHOST_SCALE = 0.34
 
 

@@ -6,16 +6,16 @@ from pathlib import Path
 import pytest
 
 import km_proto
-from operatord import volume
-from operatord.__main__ import Config, Supervisor
+from macropadd import volume
+from macropadd.__main__ import Config, Supervisor
 
 
 @pytest.fixture(autouse=True)
 def no_live_audio(monkeypatch):
     async def idle(*args):
         await asyncio.Future()
-    monkeypatch.setattr("operatord.spectrum.watch", idle)
-    monkeypatch.setattr("operatord.media.watch", idle)
+    monkeypatch.setattr("macropadd.spectrum.watch", idle)
+    monkeypatch.setattr("macropadd.media.watch", idle)
 
 WORKSPACES = [{"id": 1, "windows": 1}, {"id": 3, "windows": 2}]
 
@@ -119,7 +119,7 @@ def test_snapshot_on_connect_and_top_key_dispatch(pad, tmp_path):
 
 
 def test_bottom_key_tap_focuses_client_then_selects_tmux_window(monkeypatch, tmp_path):
-    from operatord import tmux as tmuxmod
+    from macropadd import tmux as tmuxmod
     calls = []
 
     async def fake_select(session, i):
@@ -182,7 +182,7 @@ def test_bottom_key_tap_focuses_a_sessionless_terminal(monkeypatch, tmp_path):
 def test_bottom_key_edges_are_no_ops(monkeypatch, tmp_path):
     # An empty ctx slot, a bottom-half hold, and an out-of-range key must all
     # do nothing -- and must not crash the dispatcher.
-    from operatord import tmux as tmuxmod
+    from macropadd import tmux as tmuxmod
     selected = []
 
     async def fake_select(session, i):
@@ -252,8 +252,8 @@ def test_dispatch_oserror_keeps_instance(tmp_path):
 
 
 def test_poll_ctx_builds_items_dedupes_and_reemits_on_change(monkeypatch, tmp_path):
-    from operatord import hyprland as hyprmod
-    from operatord import tmux as tmuxmod
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
 
     CLIENTS = [{"class": "kitty", "address": "0xaaa",
                 "workspace": {"id": 1, "name": "mirepoix"}}]
@@ -306,7 +306,7 @@ def test_poll_ctx_builds_items_dedupes_and_reemits_on_change(monkeypatch, tmp_pa
 
 
 def test_poll_ctx_before_first_hypr_snapshot_is_a_no_op(monkeypatch, tmp_path):
-    from operatord import tmux as tmuxmod
+    from macropadd import tmux as tmuxmod
 
     async def fake_list():
         return []
@@ -331,8 +331,8 @@ def test_poll_ctx_survives_a_tmux_outage_without_blanking_bare_terminals(monkeyp
     # list_deck_windows() returns None when the tmux SERVER is down, not when
     # it merely has no windows. A bare `foot` earns its key purely from
     # state.clients and has nothing to do with tmux's health.
-    from operatord import hyprland as hyprmod
-    from operatord import tmux as tmuxmod
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
 
     async def fake_list_none():
         return None
@@ -364,8 +364,8 @@ def test_poll_ctx_survives_a_tmux_outage_without_blanking_bare_terminals(monkeyp
 
 
 def test_poll_ctx_passes_an_ordinary_kitty_association(monkeypatch, tmp_path):
-    from operatord import hyprland as hyprmod
-    from operatord import tmux as tmuxmod
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
 
     async def fake_list():
         return [{"id": "tmux:@32", "s": "oracle", "i": 2, "n": "macropad",
@@ -397,8 +397,8 @@ def test_poll_ctx_passes_an_ordinary_kitty_association(monkeypatch, tmp_path):
 
 
 def test_poll_ctx_successful_empty_associations_leave_terminal_sessionless(monkeypatch, tmp_path):
-    from operatord import hyprland as hyprmod
-    from operatord import tmux as tmuxmod
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
 
     async def fake_list():
         return [{"id": "tmux:@1", "s": "legacy", "i": 1, "n": "shell",
@@ -424,7 +424,7 @@ def test_poll_ctx_successful_empty_associations_leave_terminal_sessionless(monke
 
 def test_poll_ctx_logs_resolver_failure_once_per_outage_and_recovers(
         monkeypatch, tmp_path, capsys):
-    from operatord import tmux as tmuxmod
+    from macropadd import tmux as tmuxmod
 
     results = [None, None, [], None]
 
@@ -446,8 +446,8 @@ def test_poll_ctx_logs_resolver_failure_once_per_outage_and_recovers(
 
     sup = asyncio.run(scenario())
     assert capsys.readouterr().out.splitlines() == [
-        "operatord: tmux-local-clients failed",
-        "operatord: tmux-local-clients failed",
+        "macropadd: tmux-local-clients failed",
+        "macropadd: tmux-local-clients failed",
     ]
     assert sup._resolver_failed is True
 
@@ -455,8 +455,8 @@ def test_poll_ctx_logs_resolver_failure_once_per_outage_and_recovers(
 def test_poll_ctx_trims_names_for_the_wire(monkeypatch, tmp_path):
     # LineCodec discards over-long lines WHOLE, so an unbounded window name
     # could silently blank the pad. Names are trimmed daemon-side.
-    from operatord import hyprland as hyprmod
-    from operatord import tmux as tmuxmod
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
 
     async def fake_list():
         return [{"id": "tmux:@1", "s": "mirepoix", "i": 1, "n": "x" * 200,

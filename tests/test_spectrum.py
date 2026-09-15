@@ -3,7 +3,7 @@ import sys
 
 import km_proto
 from km_spectrum import BANDS, Spectrum, tile
-from operatord import spectrum
+from macropadd import spectrum
 
 
 def msg(level, active=True):

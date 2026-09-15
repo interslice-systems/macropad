@@ -1,0 +1,8 @@
+# Adafruit MacroPad RP2040 (macropad). Stable names, seated-user access,
+# and keep ModemManager away. Numbered >60-serial.rules (which sets
+# ID_USB_INTERFACE_NUM - the SYMLINK lines need it) and <73 so
+# TAG+="uaccess" is honored by 73-seat-late.rules. The operator-* names are
+# aliases from before the 2026-09-15 rename, kept for old recovery commands.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", ATTRS{idProduct}=="8108", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", ATTRS{idProduct}=="8108", ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="macropad-repl operator-repl"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", ATTRS{idProduct}=="8108", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="macropad-data operator-data"

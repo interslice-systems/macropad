@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the pad's CircuitPython REPL over /dev/operator-repl.
+"""Drive the pad's CircuitPython REPL over /dev/macropad-repl.
 
 The REPL channel is the only control path that survives the CIRCUITPY drive
 being hidden (see firmware/boot.py), so deploys go through here. The daemon
@@ -26,7 +26,7 @@ import time
 
 import serial
 
-PORT = os.environ.get("OPERATOR_REPL", "/dev/operator-repl")
+PORT = os.environ.get("MACROPAD_REPL", "/dev/macropad-repl")
 BAUD = 115200
 RESET = "import microcontroller; microcontroller.reset()"
 

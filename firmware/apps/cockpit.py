@@ -74,7 +74,7 @@ class Cockpit(App):
             self.link.send({"t": "key", "n": n, "act": "tap"})
 
     def on_dial(self, delta):
-        # The knob is the host's: output volume (operatord/volume.py).
+        # The knob is the host's: output volume (macropadd/volume.py).
         self.link.send({"t": "dial", "d": delta})
 
     def on_enc(self, pressed, now):

@@ -3,7 +3,7 @@ import sys
 
 import km_proto
 from km_stereo import Readout, pages, backdrop, tile, FONT
-from operatord import media
+from macropadd import media
 
 
 def props(title='Kind of Blue', artist=None, status='Playing'):

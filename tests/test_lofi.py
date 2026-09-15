@@ -2,7 +2,7 @@
 import asyncio
 import stat
 
-from operatord import lofi
+from macropadd import lofi
 
 
 def test_push_notice_says_stopping_with_the_playing_title_or_loading():

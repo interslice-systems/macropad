@@ -76,11 +76,11 @@ async def watch(send, connected, command=("cava",)):
                     send(msg)
                 last = msg
                 if failed:
-                    logging.info("operatord: spectrum recovered")
+                    logging.info("macropadd: spectrum recovered")
                 failed = False
         except (OSError, RuntimeError, asyncio.TimeoutError) as exc:
             if not failed:
-                logging.warning("operatord: spectrum unavailable: %s", exc)
+                logging.warning("macropadd: spectrum unavailable: %s", exc)
             failed = True
         finally:
             send(stopped())

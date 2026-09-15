@@ -129,7 +129,7 @@ class SerialLink:
             try:
                 self.on_msg(msg)
             except Exception:
-                logging.exception("operatord: on_msg failed for %r", msg)
+                logging.exception("macropadd: on_msg failed for %r", msg)
 
     def _drop(self):
         if self._ser is None:
@@ -153,6 +153,6 @@ class SerialLink:
             try:
                 self.on_down()
             except Exception:
-                logging.exception("operatord: on_down failed")
+                logging.exception("macropadd: on_down failed")
         if self._lost is not None:
             self._lost.set()

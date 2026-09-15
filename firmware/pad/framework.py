@@ -90,7 +90,7 @@ def run(macropad, app):
             # freezes the visible frame while apps keep their state fresh via
             # on_msg/tick. rgb is the byte triple the app path would store: the
             # daemon does NOT gamma-decode, so this renders identically to a
-            # Cockpit key of the same color (see operatord/ledtest.py).
+            # Cockpit key of the same color (see macropadd/ledtest.py).
             if m.get("t") == "ledtest":
                 try:
                     macropad.pixels.auto_write = False

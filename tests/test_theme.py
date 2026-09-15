@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from operatord.theme import load_palette, resolve_theme_dir
+from macropadd.theme import load_palette, resolve_theme_dir
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

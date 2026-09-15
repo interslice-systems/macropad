@@ -1,4 +1,4 @@
-# operator
+# macropad
 
 CircuitPython firmware and a small host daemon that turn an
 [Adafruit MacroPad RP2040](https://www.adafruit.com/product/5128) into a desk
@@ -6,12 +6,9 @@ companion for an [Omarchy](https://omarchy.org) / Hyprland desktop: a physical
 switchboard of open terminal windows, dressed in whatever Omarchy theme is
 active. Desktop stand here: https://www.printables.com/model/1838935-adafruit-macropad-rp2040-stand
 
-Named for the Matrix's operator: the person at the console who stays aboard
-the ship. Twelve keys in a telephone layout; your desktop on the other end.
-
-Previously called **Keymaker**. Historical design documents keep that name;
-the checkout, daemon and user service are now `operator`, `operatord` and
-`operator.service`. The shared `km_*` modules retain their wire-compatible
+Previously called **Keymaker**, then **Operator** (renamed 2026-09-15).
+Historical design documents keep those names; the checkout, daemon and user
+service are now `macropad`, `macropadd` and `macropad.service`. The shared `km_*` modules retain their wire-compatible
 internal names.
 
 ## What it does
@@ -67,7 +64,7 @@ Two programs, one protocol, each side optional to the other:
   latency-critical or standalone: drawing, LEDs, key handling. Unplug the
   daemon and the pad keeps its faceplate up with a small `no link` tag
   instead of pretending.
-- **Daemon** (`operatord`, Python ≥3.11, stdlib + pyserial) owns everything
+- **Daemon** (`macropadd`, Python ≥3.11, stdlib + pyserial) owns everything
   host-shaped: Hyprland state in and actuation out (via Hyprland's IPC
   sockets — no synthetic keystrokes), tmux window state, and the Omarchy
   palette.
@@ -97,19 +94,19 @@ wall, marquee) is kept as history in
 ## Install
 
 ```sh
-git clone https://github.com/interslice-systems/operator.git
-cd operator
+git clone https://github.com/interslice-systems/macropad.git
+cd macropad
 ./system/install.sh   # rsyncs firmware to CIRCUITPY, installs the user unit
 ```
 
 The installer prints one manual step: a udev rule (stable
-`/dev/operator-*` names, and it keeps ModemManager off the serial ports)
+`/dev/macropad-*` names, and it keeps ModemManager off the serial ports)
 that needs root to place. A stock pad still shows its CIRCUITPY drive, so the
 first install works before the rule is in place; every later deploy needs it.
 
 ## Audio spectrum
 
-`operatord` supervises a headless CAVA child using `daemon/operatord/cava.conf`.
+`macropadd` supervises a headless CAVA child using `daemon/macropadd/cava.conf`.
 It monitors the default PipeWire output passively, mixes left/right for display,
 analyses 50 Hz–16 kHz, and sends 16 levels at 20 fps over the existing CDC link.
 The pad draws 16 columns of two-pixel segments and one-pixel peak caps inside
@@ -123,8 +120,8 @@ scaled music visualizer, not a calibrated dB meter.
 The faceplate is the base layer; only REC/submap badges sit above it. The
 bars go flat after two seconds with no visible audio energy, within 1.5
 seconds of missing spectrum packets, or on link loss. CAVA is stopped while the pad is disconnected and restarted after failure;
-its stderr goes to `journalctl --user -u operator.service`. No new user unit or
-personal CAVA config is needed. `systemctl --user restart operator` reloads host
+its stderr goes to `journalctl --user -u macropad.service`. No new user unit or
+personal CAVA config is needed. `systemctl --user restart macropad` reloads host
 changes; renderer changes also require `system/deploy-firmware.sh`.
 
 Protocol: `{"t":"spectrum","active":true,"bars":[...16 integers 0–16...]}`.
@@ -139,9 +136,9 @@ key response still require a bench check; host tests cannot establish those.
 
 The two rows above the analyzer show title and artist, in a fixed 5×7 pixel
 font (20 characters per row). Long lines advance in word-aware held pages
-every three seconds; no sliding text. `operatord.media` reads MPRIS through
+every three seconds; no sliding text. `macropadd.media` reads MPRIS through
 `busctl` every two seconds while connected. mpv, Firefox and other MPRIS
-players require no additional Operator plugin or Python dependency.
+players require no additional plugin or Python dependency.
 
 Only a **playing** player with a title qualifies. The current source stays
 selected while it plays; when several start together, bus-name order breaks

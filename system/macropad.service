@@ -1,13 +1,13 @@
 [Unit]
-Description=Operator macropad daemon
+Description=MacroPad desk companion daemon
 After=graphical-session.target
 PartOf=graphical-session.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/python -m operatord
-Environment=PYTHONPATH=%h/src/operator/shared:%h/src/operator/daemon
+ExecStart=/usr/bin/python -m macropadd
+Environment=PYTHONPATH=%h/src/macropad/shared:%h/src/macropad/daemon
 Restart=always
 RestartSec=2
 

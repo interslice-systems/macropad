@@ -86,12 +86,12 @@ async def watch(send, connected):
             try:
                 preferred, msg = await snapshot(preferred)
                 if failed:
-                    logging.info("operatord: media metadata recovered")
+                    logging.info("macropadd: media metadata recovered")
                 failed = False
             except (OSError, ValueError, KeyError, TypeError, asyncio.TimeoutError) as exc:
                 preferred, msg = None, empty()
                 if not failed:
-                    logging.warning("operatord: media metadata unavailable: %s", exc)
+                    logging.warning("macropadd: media metadata unavailable: %s", exc)
                 failed = True
             send(msg)  # heartbeat lets firmware expire a stuck metadata reader
         else:

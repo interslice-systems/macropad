@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from operatord import hyprland
-from operatord.hyprland import HyprState, find_instance_dir, parse_event
+from macropadd import hyprland
+from macropadd.hyprland import HyprState, find_instance_dir, parse_event
 
 WORKSPACES = [
     {"id": 1, "windows": 2}, {"id": 2, "windows": 0}, {"id": 5, "windows": 1},
@@ -115,7 +115,7 @@ def test_fnv1a32_matches_the_colorhash_contract():
     # The frozen vectors from ~/.local/share/chezmoi/colorhash/vectors.json, which
     # lab.html's runSelfTest and the bash wsid_hash check against too. If this drifts,
     # the pad and the status bar color the same session differently.
-    from operatord.hyprland import fnv1a32
+    from macropadd.hyprland import fnv1a32
     assert fnv1a32("") == 0x811C9DC5
     assert fnv1a32("a") == 0xE40C292C
     assert fnv1a32("mirepoix") == 0x2F81FEBA
@@ -127,12 +127,12 @@ def test_fnv1a32_matches_the_colorhash_contract():
 def test_fnv1a32_normalizes_to_nfc():
     # The same café spelled with a combining acute must hash identically. This is the
     # only part of the contract Python enforces that bash cannot.
-    from operatord.hyprland import fnv1a32
+    from macropadd.hyprland import fnv1a32
     assert fnv1a32("café") == fnv1a32("café")
 
 
 def test_ws_color_hashes_plain_name():
-    from operatord.hyprland import ws_color
+    from macropadd.hyprland import ws_color
     assert ws_color("mirepoix") == "be5000"          # cell 6, led surface
     assert ws_color("oracle") == "dd9100"            # cell 1, led surface
     assert ws_color("4") is None                     # unnamed: bare id, no color
@@ -145,14 +145,14 @@ def test_ws_color_takes_the_led_surface_not_the_fill():
     # fill (#e76300 for cell 6); `led` is the WS2812 rendering (#be5000 since the
     # 2026-08-23 led-band re-saturation). Sending the fill would push a color that
     # was never checked against the pad's hardware.
-    from operatord.hyprland import ws_color
+    from macropadd.hyprland import ws_color
     assert ws_color("mirepoix") != "e76300"
     assert ws_color("mirepoix") == "be5000"
 
 
 def test_ws_color_is_none_without_a_palette(tmp_path, monkeypatch):
     # Fail closed: an unlit pad is obvious, a plausible-but-wrong palette is not.
-    from operatord import hyprland
+    from macropadd import hyprland
     monkeypatch.setattr(hyprland, "PALETTE_FILE", tmp_path / "missing.json")
     monkeypatch.setattr(hyprland, "_LED_CACHE", None)
     assert hyprland.ws_color("mirepoix") is None
@@ -160,7 +160,7 @@ def test_ws_color_is_none_without_a_palette(tmp_path, monkeypatch):
 
 def test_session_name_matches_the_bash_canonicalizer():
     # Golden twin of wsid_session_name in ~/oracle/scripts/workspace-identity-lib.
-    from operatord.hyprland import session_name
+    from macropadd.hyprland import session_name
 
     assert session_name("a.b:c/d#e") == "a-b-c-d-e"
     assert session_name("a\tb\nc\x7fd") == "a-b-c-d"
@@ -171,7 +171,7 @@ def test_session_name_matches_the_bash_canonicalizer():
 
 
 def test_ws_color_hashes_sanitized_name():
-    from operatord.hyprland import ws_color
+    from macropadd.hyprland import ws_color
     # "wacky sax" sanitizes to "wacky-sax"; fnv1a32("wacky-sax")=0xaecd57d7, mod 10 = 1.
     assert ws_color("wacky sax") == "dd9100"
     assert ws_color("wacky sax") == ws_color("wacky-sax")
@@ -189,7 +189,7 @@ def test_renameworkspace_triggers_refresh():
     # Hyprland emits renameworkspace>>ID,NAME (verified live 2026-08-18).
     # Without it in REFRESH_EVENTS a rename only reaches the pad by luck,
     # riding whatever unrelated event fires next.
-    from operatord.hyprland import HyprState
+    from macropadd.hyprland import HyprState
     s = HyprState()
     assert s.handle_event("renameworkspace", "1,wacky-sax") == (True, False)
 

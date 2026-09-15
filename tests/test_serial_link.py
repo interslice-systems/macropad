@@ -4,8 +4,8 @@ import os
 import pytest
 
 import km_proto
-from operatord.serial_link import SerialLink
-from operatord import serial_link
+from macropadd.serial_link import SerialLink
+from macropadd import serial_link
 
 
 @pytest.fixture

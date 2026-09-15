@@ -1,7 +1,7 @@
 """The knob as a volume knob: detents coalesce, one command at a time."""
 import asyncio
 
-from operatord import volume
+from macropadd import volume
 
 
 def test_a_quick_spin_loses_no_detents_and_never_overlaps_commands():

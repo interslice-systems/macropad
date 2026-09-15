@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Operator · Stereo display</title>
+<title>MacroPad · Stereo display</title>
 <style>
 :root{color-scheme:dark;font-family:ui-monospace,monospace;background:#181a1b;color:#e5e6e2}
 *{box-sizing:border-box}body{max-width:900px;margin:0 auto;padding:40px 24px}
@@ -17,10 +17,10 @@ input,select{width:100%;margin-top:8px}button{cursor:pointer;margin:0 8px 8px 0}
 footer{margin-top:28px;font-size:12px;color:#b6bcb8;line-height:1.7}
 @media(max-width:540px){body{padding:24px 14px}.receiver{padding:12px}.controls{grid-template-columns:1fr}.engraved{font-size:10px}.glass{padding:16px 0}}
 </style>
-<header><h1>OPERATOR</h1><div>Shipboard stereo / OLED study 01</div></header>
+<header><h1>MACROPAD</h1><div>Stereo / OLED study 01</div></header>
 <p>A little hi-fi faceplate for the desk. Two lines of now-playing text, sixteen segmented bands, falling peak caps, and a frequency scale. Every lit square below is one OLED pixel.</p>
-<div class="receiver"><div class="engraved"><span>OPERATOR / SPECTRUM ANALYZER</span><span>50 Hz — 16 kHz</span></div>
-<div class="glass"><canvas id="oled" width="128" height="64" role="img" aria-label="Animated preview of the Operator OLED spectrum and song readout"></canvas></div>
+<div class="receiver"><div class="engraved"><span>SPECTRUM ANALYZER</span><span>50 Hz — 16 kHz</span></div>
+<div class="glass"><canvas id="oled" width="128" height="64" role="img" aria-label="Animated preview of the MacroPad OLED spectrum and song readout"></canvas></div>
 <div class="native"><canvas id="native" width="128" height="64" aria-label="128 by 64 pixel preview"></canvas><p>128 × 64 · monochrome<br>Unscaled pixels at left; physical size depends on your monitor.</p></div></div>
 <div class="controls"><label>Track title<input id="title" maxlength="96" value="Summer lofi radio music to put you in a better mood"></label><label>Artist<input id="artist" maxlength="96" value="Lofi Girl"></label></div>
 <button id="lofi">Lofi radio</button><button id="jazz">Jazz record</button><button id="fallback">No metadata</button><button id="pause" aria-pressed="false">Freeze animation</button>
