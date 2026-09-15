@@ -76,7 +76,7 @@ def test_real_renderer_faceplate_is_the_whole_display(monkeypatch):
     screen.set_link(True)
     assert screen._nolink.hidden
     screen.tick(50)
-    assert screen._media_drawn == ('SYSTEM AUDIO'.ljust(20), 'OPERATOR'.ljust(20))
+    assert screen._media_drawn == ('SYSTEM AUDIO'.ljust(20), ' ' * 20)
     screen.set_spectrum({'active': True, 'bars': [8]*16}, 60)
     screen.tick(100)
     grid = screen._spectrum_grid

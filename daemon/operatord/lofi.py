@@ -1,10 +1,10 @@
-"""The knob as a station dial for the interslice.lofi bar widget.
+"""The knob push as a radio power button for the interslice.lofi bar widget.
 
-Tuner is the pure state machine (unit-tested with a fake clock); Client is
-the thin shell-out to bin/lofi. Turning browses the live station list and,
-while something is playing, commits the switch once the knob rests. While
-stopped, turning only previews; the push starts the cursor station or stops
-the player, because the push is awkward and start/stop are rare.
+`lofi toggle` owns the whole decision -- stop if running, else start the
+last-played stream (or the first) -- so the daemon keeps no station state.
+It only asks `lofi status` first, to put the right line on the faceplate.
+Station browsing left the knob 2026-09-15: detent-by-detent tuning was slow,
+and the media keys (MPRIS Next/Previous) already step between streams.
 """
 import asyncio
 import json
@@ -13,8 +13,8 @@ import shutil
 
 from . import media
 
-HOLD_S = 3          # a preview while turning
 NOTICE_S = 10       # LOADING: cleared early by the player's new title
+STOP_S = 4
 PLUGIN_BIN = os.path.expanduser("~/.config/omarchy/plugins/interslice.lofi/bin/lofi")
 
 
@@ -22,57 +22,17 @@ def find_script():
     return shutil.which("lofi") or PLUGIN_BIN
 
 
-class Tuner:
-    def __init__(self, settle_s=0.4, resync_s=5.0):
-        self.settle_s = settle_s
-        self.resync_s = resync_s
-        self.stations = []
-        self.cursor = None
-        self.origin = None       # cursor at sync; a settle back here is a no-op
-        self.running = False
-        self.deadline = None
-        self.last_dial = None
+def notice(title, line, hold=NOTICE_S):
+    """A faceplate line: the station on top, what the push is doing below."""
+    return {"t": "tune", "title": media.clean(title), "line": line, "hold": hold}
 
-    def needs_sync(self, now):
-        return self.last_dial is None or now - self.last_dial >= self.resync_s
 
-    def sync(self, stations, current_id, running):
-        self.stations = list(stations)
-        self.running = running
-        ids = [s.get("id") for s in self.stations]
-        self.cursor = ids.index(current_id) if current_id in ids else (0 if ids else None)
-        self.origin = self.cursor
-
-    def notice(self, line, hold=NOTICE_S):
-        """A faceplate line about the cursor station: TUNING, LOADING, STOPPING."""
-        if self.cursor is None:
-            return None
-        return {"t": "tune", "title": media.clean(self.stations[self.cursor].get("title", "")),
-                "line": line, "hold": hold}
-
-    def dial(self, delta, now):
-        self.last_dial = now
-        if self.cursor is None:
-            return None
-        self.cursor = (self.cursor + delta) % len(self.stations)
-        self.deadline = now + self.settle_s
-        return self.notice("TUNING" if self.running else "PUSH TO PLAY", HOLD_S)
-
-    def settle(self, now):
-        if self.deadline is None or now < self.deadline:
-            return None
-        self.deadline = None
-        if not self.running or self.cursor == self.origin:
-            return None
-        self.origin = self.cursor
-        return self.stations[self.cursor]["id"]
-
-    def push(self):
-        if self.running:
-            return ("stop", None)
-        if self.cursor is None:
-            return ("play", None)
-        return ("play", self.stations[self.cursor]["id"])
+def push_notice(status):
+    """The faceplate line for a push, given (id, running, title) before it."""
+    _, running, title = status
+    if running:
+        return notice(title or "LOFI GIRL", "STOPPING", STOP_S)
+    return notice("LOFI GIRL", "LOADING")
 
 
 class Client:
@@ -89,22 +49,13 @@ class Client:
         except (OSError, asyncio.TimeoutError):
             return ""
 
-    async def stations(self):
-        try:
-            data = json.loads(await self._run("list") or "[]")
-        except ValueError:
-            return []
-        return [s for s in data if isinstance(s, dict) and isinstance(s.get("id"), str)]
-
     async def status(self):
         try:
             data = json.loads(await self._run("status") or "{}")
-            return (str(data.get("id") or ""), bool(data.get("running")))
+            return (str(data.get("id") or ""), bool(data.get("running")),
+                    str(data.get("title") or ""))
         except ValueError:
-            return ("", False)
+            return ("", False, "")
 
-    async def play(self, station_id):
-        await self._run("play", station_id)
-
-    async def stop(self):
-        await self._run("stop")
+    async def toggle(self):
+        await self._run("toggle")

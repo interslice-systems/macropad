@@ -47,7 +47,7 @@ let epoch=performance.now(),paused=false,frozen=0,last=0,peaks=Array(16).fill(0)
 function pages(s){s=s.normalize('NFKD').replace(/[^ -~]/g,'').toUpperCase().trim();let out=[];while(s.length>20){let cut=s.lastIndexOf(' ',20);if(cut<=0)cut=20;out.push(s.slice(0,cut));s=s.slice(cut).trimStart()}out.push(s);return out}
 function text(s,x,y){for(let i=0;i<s.length;i++){const rows=data.font[s[i]]||data.font['?'];rows.forEach((mask,r)=>{for(let c=0;c<5;c++)if(mask&(1<<(4-c)))ctx.fillRect(x+i*6+c,y+r,1,1)})}}
 function draw(now){if(now-last<50){requestAnimationFrame(draw);return}last=now;const t=paused?frozen:now-epoch;ctx.fillStyle='#000';ctx.fillRect(0,0,128,64);ctx.fillStyle='#fff';data.face.forEach(([x,y])=>ctx.fillRect(x,y,1,1));
- const a=pages(title.value||'System audio'),b=pages(artist.value||'Operator'),page=Math.floor(t/data.pageMs);
+ const a=pages(title.value||'System audio'),b=pages(artist.value||''),page=Math.floor(t/data.pageMs);
  const lines=[a[page%a.length],b[page%b.length]];text(lines[0],8,0);text(lines[1],8,9);
  if(lines.join(' / ')!==lastText){lastText=lines.join(' / ');document.getElementById('readout').textContent=lastText}
  for(let i=0;i<16;i++){const v=Math.max(0,Math.min(16,Math.round(6+4*Math.sin(t/730+i*.35)+3*Math.sin(t/190+i*.89)+(15-i)*.14)));let peak=Math.max(0,tops[i]-Math.floor(Math.max(0,t-raised[i]-1000)/80));if(v&&v>=peak){tops[i]=peak=v;raised[i]=t}peaks[i]=peak;const bar=Math.ceil(v/2),cap=Math.ceil(peak/2);for(let row=0;row<8;row++){const y=22+row*4,x=9+i*7;if(8-row<=bar)ctx.fillRect(x,y+2,5,2);if(8-row===cap)ctx.fillRect(x,y,5,1)}}

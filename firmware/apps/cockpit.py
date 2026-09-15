@@ -1,7 +1,8 @@
 """Cockpit: the split deck. Keys 0-5 = workspaces 1-6 in their colorhash
 colors; keys 6-11 = tmux windows associated with local terminals on the active
 workspace, then unassociated terminals; OLED = the radio faceplate (spectrum
-plus the Lofi Girl readout, see pad/ui.py and km_stereo); knob = station dial."""
+plus the Lofi Girl readout, see pad/ui.py and km_stereo); knob = volume,
+push = Lofi Girl on/off."""
 from adafruit_ticks import ticks_diff, ticks_ms
 
 import km_palette
@@ -73,7 +74,7 @@ class Cockpit(App):
             self.link.send({"t": "key", "n": n, "act": "tap"})
 
     def on_dial(self, delta):
-        # The knob is the host's: it browses Lofi Girl stations (operatord/lofi.py).
+        # The knob is the host's: output volume (operatord/volume.py).
         self.link.send({"t": "dial", "d": delta})
 
     def on_enc(self, pressed, now):

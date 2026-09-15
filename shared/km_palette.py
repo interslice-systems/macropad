@@ -49,13 +49,38 @@ OCCUPIED_SCALE = 0.55
 URGENT_DARK = 0.0        # the off phase is genuinely off
 URGENT_DUTY = 0.5        # 50/50, as an automotive flasher runs
 
+# Softened 2026-09-15 (Chris: keep it attention-grabbing, "just soften the
+# transitions", explicitly NOT a breathing wave). Each hard edge became a short
+# smoothstep centred on where the edge used to be, so the duty cycle -- and the
+# hazard-lamp read -- is unchanged; only the switch-on and switch-off ease. At
+# the 1000 ms period this is ~120 ms per edge, about an incandescent bulb's
+# thermal lag, which is the flasher the waveform was modelled on.
+URGENT_EDGE = 0.12       # fraction of the period spent on EACH transition
+
+
+def _smoothstep(x):
+    x = 0.0 if x < 0.0 else (1.0 if x > 1.0 else x)
+    return x * x * (3.0 - 2.0 * x)
+
 
 def urgent_factor(phase):
     """Blink factor for a bell/urgent key. `phase` is a LINEAR 0..1 ramp over
-    the blink period -- not the triangle wave this used to take, since a
-    square wave needs to know where it is in the cycle, not how far from the
-    ends. Lit for the first half, dark for the second."""
-    return 1.0 if phase < URGENT_DUTY else URGENT_DARK
+    the blink period -- not the triangle wave this used to take, since the
+    blink needs to know where it is in the cycle, not how far from the ends.
+    Lit for the first half, dark for the second, eased across each edge."""
+    half = URGENT_EDGE / 2
+    phase = phase % 1.0
+    if phase >= 1.0 - half:                   # the rise wraps across 0
+        phase -= 1.0
+    if phase < half:                          # rising, centred on 0.0
+        t = _smoothstep((phase + half) / URGENT_EDGE)
+    elif phase < URGENT_DUTY - half:
+        t = 1.0
+    elif phase < URGENT_DUTY + half:          # falling, centred on the duty edge
+        t = 1.0 - _smoothstep((phase - URGENT_DUTY + half) / URGENT_EDGE)
+    else:
+        t = 0.0
+    return URGENT_DARK + (1.0 - URGENT_DARK) * t
 
 
 def hex_to_int(s):
@@ -80,40 +105,49 @@ def key_color(state, pal, phase=0.0):
     if state == "occupied":
         return scale(_c(pal, "accent"), OCCUPIED_SCALE)
     if state == "urgent":
-        return scale(_c(pal, "red"), urgent_factor(phase))
+        # Blinks the colour the key wears when it is not ringing -- see
+        # ws_key_color for why a bell keeps its identity.
+        return scale(_c(pal, "accent"), urgent_factor(phase))
     return 0
 
 
 def ws_key_color(state, ws_hex, pal, phase=0.0):
-    """Top-half key: the workspace's colorhash hue for active/occupied.
+    """Top-half key: the workspace's colorhash hue, blinking when urgent.
 
-    Urgent and empty ignore the hue on purpose -- urgency is an alert, not an
-    identity, and must look the same on every key. No hue at all (unnamed
-    workspace, missing palette.json) falls back to the theme accent.
+    A ringing key KEEPS its hue (2026-09-15). It used to swap to the theme's
+    `red` so every alert looked alike, but the blink already says "alert" and
+    the hue is what says WHICH workspace -- and a pastel theme red (Catppuccin's
+    f38ba8) renders near-white on a WS2812, so it read as the colour mapping
+    failing. Empty ignores the hue. No hue at all (unnamed workspace, missing
+    palette.json) falls back to the theme accent.
     """
-    if ws_hex is None or state in ("urgent", "empty"):
+    if ws_hex is None or state == "empty":
         return key_color(state, pal, phase)
     c = hex_to_int(ws_hex)
     if state == "active":
         return c
     if state == "occupied":
         return scale(c, OCCUPIED_SCALE)
+    if state == "urgent":
+        return scale(c, urgent_factor(phase))
     return 0
 
 
 def ctx_key_color(item, pal, phase=0.0):
     """Bottom-half key for one ctx item ({"c", "active", "bell"}); None -> off.
 
-    Fail closed on colour, never on the alert: an item without an identity hue
-    renders dark, unless it is ringing -- a lost bell is worse than a lost hue.
+    A ringing key blinks its own hue, like the top half. Fail closed on colour,
+    never on the alert: an item without an identity hue renders dark, unless it
+    is ringing -- then it blinks the theme red, since a lost bell is worse than
+    a lost hue.
     """
     if item is None:
         return 0
-    if item.get("bell"):
-        return scale(_c(pal, "red"), urgent_factor(phase))
     if not item.get("c"):
-        return 0
+        return scale(_c(pal, "red"), urgent_factor(phase)) if item.get("bell") else 0
     c = hex_to_int(item["c"])
+    if item.get("bell"):
+        return scale(c, urgent_factor(phase))
     return c if item.get("active") else scale(c, OCCUPIED_SCALE)
 
 

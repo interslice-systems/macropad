@@ -23,7 +23,7 @@ def test_tune_rejects_junk_and_shows_only_the_first_page_of_long_names():
     assert state.tune({'title': 'lofi hip hop radio beats to relax/study to', 'line': 'PUSH TO PLAY', 'hold': 3}, 0)
     assert state.frame(0) == ('LOFI HIP HOP RADIO', 'PUSH TO PLAY')
     assert state.frame(2999) == ('LOFI HIP HOP RADIO', 'PUSH TO PLAY')   # no paging while tuning
-    assert state.frame(3000) == ('SYSTEM AUDIO', 'OPERATOR')
+    assert state.frame(3000) == ('SYSTEM AUDIO', '')
 
 
 def test_a_new_title_from_the_player_cancels_a_pending_tune_line():

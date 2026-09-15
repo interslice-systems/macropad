@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import hyprland, ledtest, lofi, media, spectrum, tmux
+from . import hyprland, ledtest, lofi, media, spectrum, tmux, volume
 from .serial_link import SerialLink
 from .theme import ThemeWatcher
 
@@ -43,10 +43,9 @@ class Supervisor:
         # IndexError.
         self.ctx_items = []
         self.ctx_msg = None
-        # The knob: browse Lofi Girl stations, settle to switch, push to toggle.
+        # The knob: turn = output volume, push = Lofi Girl on/off.
         self.lofi = lofi.Client()
-        self.tuner = lofi.Tuner()
-        self._settle_task = None
+        self.volume = volume.Knob()
         self.link = SerialLink(cfg.device, on_msg=self._on_pad_msg,
                                on_up=self._on_link_up, on_down=self._on_link_down)
         self._refresh_wanted = asyncio.Event()
@@ -136,41 +135,14 @@ class Supervisor:
 
     # ---- the knob -------------------------------------------------
     async def _on_dial(self, delta):
-        loop = asyncio.get_running_loop()
-        if self.tuner.needs_sync(loop.time()):
-            stations = await self.lofi.stations()
-            current, running = await self.lofi.status()
-            self.tuner.sync(stations, current, running)
-        preview = self.tuner.dial(delta, loop.time())
-        if preview is None:
-            return
-        self.link.send(preview)
-        if self._settle_task is not None:
-            self._settle_task.cancel()
-        self._settle_task = asyncio.ensure_future(self._settle())
-
-    async def _settle(self):
-        await asyncio.sleep(self.tuner.settle_s)
-        station = self.tuner.settle(asyncio.get_running_loop().time())
-        if station is not None:
-            print(f"operatord: knob -> lofi play {station}", flush=True)
-            self.link.send(self.tuner.notice("LOADING"))
-            await self.lofi.play(station)
+        await self.volume.turn(delta)
 
     async def _on_push(self):
-        if self.tuner.needs_sync(asyncio.get_running_loop().time()):
-            stations = await self.lofi.stations()
-            current, running = await self.lofi.status()
-            self.tuner.sync(stations, current, running)
-        action, station = self.tuner.push()
-        print(f"operatord: knob push -> lofi {action} {station or ''}", flush=True)
-        if action == "stop":
-            self.link.send(self.tuner.notice("STOPPING", hold=4))
-            await self.lofi.stop()
-        elif station is not None:
-            self.link.send(self.tuner.notice("LOADING"))
-            await self.lofi.play(station)
-        self.tuner.last_dial = None            # next turn re-reads the player
+        status = await self.lofi.status()
+        msg = lofi.push_notice(status)
+        print(f"operatord: knob push -> lofi toggle ({msg['line'].lower()})", flush=True)
+        self.link.send(msg)
+        await self.lofi.toggle()
 
     async def _dispatch(self, cmd):
         # Swallow transient IPC failures WITHOUT clearing _instance:

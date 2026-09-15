@@ -59,7 +59,8 @@ TINY = {
 
 
 def backdrop():
-    """Immutable bezel, play marker and logarithmic frequency legend."""
+    """Immutable bezel, play marker and logarithmic frequency legend. No side
+    ticks since 2026-09-15: the eight segment rows already mark the scale."""
     pixels = set()
     for x in range(2,126):
         pixels.add((x,19))
@@ -68,9 +69,6 @@ def backdrop():
         pixels.add((0,y))
         pixels.add((127,y))
     pixels.update(((1,20),(126,20),(1,54),(126,54)))
-    for y in (23,31,39,47,53):
-        for x in (3,4,123,124):
-            pixels.add((x,y))
     for x in range(5):
         for y in range(x//2, 5-x//2):
             pixels.add((x,y+1))
@@ -115,7 +113,7 @@ class Readout:
         self.received = None
         self.epoch = 0
         self.value = ('', '')
-        self.lines = (['SYSTEM AUDIO'], ['OPERATOR'])
+        self.lines = (['SYSTEM AUDIO'], [''])
         self.tune_until = None
         self.tune_lines = None
 
@@ -132,7 +130,7 @@ class Readout:
         if value != self.value or stale:
             self.epoch = now
             self.value = value
-            self.lines = (pages(title or 'SYSTEM AUDIO'), pages(artist or 'OPERATOR'))
+            self.lines = (pages(title or 'SYSTEM AUDIO'), pages(artist))
         return True
 
     def tune(self, msg, now):
@@ -154,6 +152,6 @@ class Readout:
         if self.tuning(now):
             return self.tune_lines
         if self.received is None or self.diff(now,self.received) >= STALE_MS:
-            return ('SYSTEM AUDIO', 'OPERATOR')
+            return ('SYSTEM AUDIO', '')
         page = max(0,self.diff(now,self.epoch)) // PAGE_MS
         return tuple(line[page % len(line)] for line in self.lines)

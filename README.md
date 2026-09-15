@@ -28,7 +28,7 @@ A single app: **Cockpit**, the split deck.
   unassociated terminals (which have no stable name, so they take the cell of
   the key they land on). `tmux-local-clients` is the association authority, so
   ordinary Kitty, foot, and Ghostty windows work without special classes or
-  launchers. Focused full-bright, others dimmed, bell pulsing. Tap to jump to
+  launchers. Focused full-bright, others dimmed, a bell blinks the key's own hue. Tap to jump to
   that window.
 - **The OLED is a radio.** A stereo faceplate with a framed 16-band
   segmented audio spectrum, track/artist text, a frequency legend and
@@ -44,15 +44,13 @@ A single app: **Cockpit**, the split deck.
   associated terminal, tmux's per-window bell replaces the coarse terminal
   bell only when their exact Hyprland addresses match; this prevents duplicate
   indications without hiding bells from unassociated terminals.
-- **The knob tunes Lofi Girl.** Turning browses the stations the
-  [interslice.lofi](https://github.com/interslice-systems/lofi) bar widget
-  knows about, in its list order, and the faceplate shows the candidate
-  name while you turn (even in silence). While a stream is playing, the
-  switch lands about half a second after the knob rests — an in-place fade,
-  not a restart. While stopped, turning only previews. Pushing the knob
-  starts the previewed station or stops the player; start and stop are rare,
-  which suits a push that is awkward to reach. The daemon drives it all
-  through `bin/lofi`; the pad only reports detents and the push.
+- **The knob is a volume knob.** Each detent moves the output volume 2%
+  through `omarchy-audio-output-volume`, the script behind the keyboard's
+  volume keys, so it hits the same sink and shows the same OSD. A fast spin
+  coalesces instead of racing. Pushing the knob toggles
+  [interslice.lofi](https://github.com/interslice-systems/lofi): stop if a
+  stream is playing, else start the last-played one (`lofi toggle`). The
+  media keys step between streams; the pad only reports detents and the push.
 
 ### Theme following
 
@@ -116,7 +114,7 @@ It monitors the default PipeWire output passively, mixes left/right for display,
 analyses 50 Hz–16 kHz, and sends 16 levels at 20 fps over the existing CDC link.
 The pad draws 16 columns of two-pixel segments and one-pixel peak caps inside
 a rounded 128-pixel bezel. Eight segment rows map the 16 incoming levels onto
-a 32-pixel analyzer area; side ticks and a 50/250/1K/4K/16K legend complete the
+a 32-pixel analyzer area; a 50/250/1K/4K/16K legend completes the
 stereo faceplate. Caps
 hold for 1000 ms, then drop one wire level every 80 ms (one visible segment
 per two levels). This is an automatically
@@ -149,16 +147,16 @@ Only a **playing** player with a title qualifies. The current source stays
 selected while it plays; when several start together, bus-name order breaks
 the tie. MPRIS does not associate a track with a PipeWire output: simultaneous
 players or audio routed to a different sink can make metadata differ from the
-analyzed mix. Missing metadata shows `SYSTEM AUDIO` / `OPERATOR`; absent artist
-uses `OPERATOR`. Metadata is ASCII-normalized, bounded to 96 characters per
+analyzed mix. Missing metadata shows `SYSTEM AUDIO` over a blank row; an absent
+artist leaves the second row blank. Metadata is ASCII-normalized, bounded to 96 characters per
 field and refreshed as a heartbeat; 6.5 seconds without an update clears it.
 
 Protocol: `{"t":"media","title":"So What","artist":"Miles Davis"}`.
-The packet is included in the reconnect snapshot. The knob's `tune` packet
-(`{"t":"tune","title":...,"line":...,"hold":seconds}`) overrides both lines for
-`hold` seconds — `TUNING` / `PUSH TO PLAY` while turning, `LOADING` once a
-switch is committed, `STOPPING` on a push — and a new title from the player
-cancels it early, so `LOADING` clears the moment the stream is audible.
+The packet is included in the reconnect snapshot. The knob push's `tune`
+packet (`{"t":"tune","title":...,"line":...,"hold":seconds}`) overrides both
+lines for `hold` seconds — `LOADING` when the push starts Lofi Girl, `STOPPING`
+under the playing title when it stops — and a new title from the player cancels
+it early, so `LOADING` clears the moment the stream is audible.
 
 Open [the animated OLED preview](docs/stereo-preview.html) locally in a browser.
 It uses the same font and bezel pixels as firmware, with editable title/artist,

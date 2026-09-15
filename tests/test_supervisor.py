@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import km_proto
+from operatord import volume
 from operatord.__main__ import Config, Supervisor
 
 
@@ -483,42 +484,38 @@ def test_poll_ctx_trims_names_for_the_wire(monkeypatch, tmp_path):
     assert len(ctx["items"][0]["n"]) <= 20
 
 
-def test_dial_previews_then_plays_once_and_push_stops(monkeypatch, tmp_path):
+def test_dial_turns_volume_and_push_toggles_lofi(monkeypatch, tmp_path):
     sent, calls = [], []
 
     class FakeLofi:
-        path = "fake"
-        async def stations(self):
-            return [{"id": "aaa", "title": "jazz"}, {"id": "bbb", "title": "sleep"}]
+        running = True
         async def status(self):
-            return ("aaa", True)
-        async def play(self, station_id):
-            calls.append(("play", station_id))
-        async def stop(self):
-            calls.append(("stop",))
+            return ("aaa", self.running, "jazz")
+        async def toggle(self):
+            calls.append(("toggle",))
+            self.running = not self.running
+
+    async def fake_volume(arg):
+        calls.append(("volume", arg))
+        await asyncio.sleep(0.05)
 
     async def scenario():
         sup = _supervisor(tmp_path)
         sup.link = _sent_link(sent)
         sup.lofi = FakeLofi()
-        sup.tuner.settle_s = 0.1
+        sup.volume = volume.Knob(run=fake_volume)
         sup._on_pad_msg({"t": "dial", "d": 1})
-        await asyncio.sleep(0.05)
-        sup._on_pad_msg({"t": "dial", "d": 1})      # back to aaa: nothing to do
-        await asyncio.sleep(0.2)
-        first = (list(sent), list(calls))
+        await asyncio.sleep(0.01)
+        sup._on_pad_msg({"t": "dial", "d": 1})      # arrive mid-command: coalesced
         sup._on_pad_msg({"t": "dial", "d": 1})
-        await asyncio.sleep(0.2)
-        second = list(calls)
+        await asyncio.sleep(0.15)
         sup._on_pad_msg({"t": "enc", "act": "tap"})
         await asyncio.sleep(0.05)
-        return first, second, list(calls)
+        sup._on_pad_msg({"t": "enc", "act": "tap"})
+        await asyncio.sleep(0.05)
+        return list(calls)
 
-    (sent1, calls1), calls2, calls3 = asyncio.run(scenario())
-    assert [m["title"] for m in sent1] == ["sleep", "jazz"]
-    assert all(m["t"] == "tune" and m["line"] == "TUNING" for m in sent1)
-    assert calls1 == []
-    assert calls2 == [("play", "bbb")]
-    assert calls3 == [("play", "bbb"), ("stop",)]
-    assert [m["line"] for m in sent][2:] == ["TUNING", "LOADING", "STOPPING"]
-    assert sent[-1]["title"] == "sleep"
+    calls = asyncio.run(scenario())
+    assert calls == [("volume", "+2"), ("volume", "+4"), ("toggle",), ("toggle",)]
+    assert [(m["title"], m["line"]) for m in sent] == [
+        ("jazz", "STOPPING"), ("LOFI GIRL", "LOADING")]

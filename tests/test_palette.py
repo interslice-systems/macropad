@@ -16,9 +16,9 @@ def test_key_color_states():
     assert kp.key_color("active", pal) == 0xFF0000
     assert kp.key_color("occupied", pal) == kp.scale(0xFF0000, kp.OCCUPIED_SCALE)
     assert kp.key_color("empty", pal) == 0
-    lit = kp.key_color("urgent", pal, phase=0.0)
+    lit = kp.key_color("urgent", pal, phase=0.25)
     dark = kp.key_color("urgent", pal, phase=0.75)
-    assert lit == 0x00FF00 and dark == 0
+    assert lit == 0xFF0000 and dark == 0       # blinks the accent it wears
 
 
 def test_key_color_missing_keys_fall_back_to_default():
@@ -63,26 +63,34 @@ def test_urgent_blinks_fully_dark_reversing_the_old_never_dimmer_rule():
     The old rule -- an alert must never sit dimmer than an occupied key --
     was written for a smooth 0.55 -> 1.0 ramp, where dipping under ambient
     makes a bell look like a dim workspace. The shipped waveform is a hazard
-    lamp: hard edges, dark off phase, signalling through change rather than
-    brightness. Chosen on hardware 2026-08-23. If someone reinstates a floor,
-    this test should fail loudly rather than let the blink quietly soften.
+    lamp: dark off phase, signalling through change rather than brightness.
+    Chosen on hardware 2026-08-23. If someone reinstates a floor, this test
+    should fail loudly rather than let the blink quietly soften.
     """
     pal = {"accent": "FF0000", "red": "00FF00"}
-    assert kp.urgent_factor(0.0) == 1.0
-    assert kp.urgent_factor(0.49) == 1.0
-    assert kp.urgent_factor(0.5) == 0.0        # the edge, exactly
-    assert kp.urgent_factor(0.99) == 0.0
+    assert kp.urgent_factor(0.25) == 1.0
+    assert kp.urgent_factor(0.75) == 0.0
     assert kp.key_color("urgent", pal, phase=0.75) == 0
     # ...and it is genuinely darker than an occupied key, on purpose.
     assert kp.urgent_factor(0.75) < kp.OCCUPIED_SCALE
 
 
-def test_urgent_blink_is_a_square_wave_with_even_duty():
-    """No easing, no intermediate values: a fade is what read as too subtle."""
-    seen = {kp.urgent_factor(i / 1000) for i in range(1000)}
-    assert seen == {0.0, 1.0}
-    lit = sum(1 for i in range(1000) if kp.urgent_factor(i / 1000) == 1.0)
-    assert lit == 500
+def test_urgent_blink_has_even_duty_with_softened_edges_not_a_breathing_wave():
+    """Softened 2026-09-15: short eased edges, still mostly a square wave.
+
+    The plateaus must dominate -- a breathing wave (all transition) was
+    explicitly not wanted -- and each edge is centred on the old hard edge, so
+    the lit/dark balance chosen on hardware is unchanged.
+    """
+    samples = [kp.urgent_factor(i / 1000) for i in range(1000)]
+    assert abs(sum(samples) - 500) < 1.0
+    plateau = sum(1 for v in samples if v in (0.0, 1.0))
+    assert plateau >= 1000 * (1 - 2 * kp.URGENT_EDGE) - 2
+    assert kp.urgent_factor(0.0) == 0.5 and abs(kp.urgent_factor(0.5) - 0.5) < 1e-9
+    # Monotone through each edge: eased, never flickering.
+    rise = [kp.urgent_factor(p / 1000 % 1.0) for p in range(940, 1061)]
+    fall = [kp.urgent_factor(p / 1000) for p in range(440, 561)]
+    assert rise == sorted(rise) and fall == sorted(fall, reverse=True)
 
 
 def test_state_factor_orders_states_by_brightness():
@@ -96,7 +104,7 @@ def test_a_deck_bell_blinks_the_same_hazard_waveform_as_a_workspace_bell():
     # Both halves of the deck must alert identically -- a bell is a bell.
     # This too used to assert a floor at OCCUPIED_SCALE; see
     # test_urgent_blinks_fully_dark_reversing_the_old_never_dimmer_rule.
-    assert kp.state_factor("bell", phase=0.0) == 1.0
+    assert kp.state_factor("bell", phase=0.25) == 1.0
     assert kp.state_factor("bell", phase=0.75) == 0.0
     for i in range(0, 100):
         p = i / 100
@@ -136,10 +144,10 @@ def test_deck_key_color_mirrors_the_existing_key_colour_helpers():
 
 
 def test_deck_key_color_blinks_a_bell_between_focused_and_dark():
-    # phase 0.0 is the LIT half and 0.75 the dark half. Note the reversal:
-    # under the old fade, phase=1.0 was peak brightness; under the blink it
-    # is the end of the cycle, i.e. dark.
-    lit = kp.deck_key_color("bell", "e16000", 0.0)
+    # phase 0.25 is mid LIT half and 0.75 mid dark half (0.0 and 0.5 are the
+    # centres of the eased edges). Under the old fade, phase=1.0 was peak
+    # brightness; under the blink it is the middle of the rise.
+    lit = kp.deck_key_color("bell", "e16000", 0.25)
     dark = kp.deck_key_color("bell", "e16000", 0.75)
     assert lit == kp.deck_key_color("focused", "e16000", 0.0)
     assert dark == 0x000000
@@ -154,11 +162,13 @@ def test_ws_key_color_uses_the_workspace_hue_for_active_and_occupied():
         kp.scale(kp.hex_to_int("e16000"), kp.OCCUPIED_SCALE)
 
 
-def test_ws_key_color_urgent_and_empty_ignore_the_workspace_hue():
-    # Urgency is an alert, not an identity: it must look the same on every key.
+def test_ws_key_color_urgent_blinks_the_workspace_hue_and_empty_ignores_it():
+    # Reversed 2026-09-15: a ringing key keeps its identity. The theme red it
+    # used to swap to was a pastel that rendered near-white on the LEDs.
     pal = {"accent": "FF0000", "red": "00FF00"}
-    assert kp.ws_key_color("urgent", "e16000", pal, 1.0) == \
-        kp.key_color("urgent", pal, 1.0)
+    assert kp.ws_key_color("urgent", "e16000", pal, 0.25) == kp.hex_to_int("e16000")
+    assert kp.ws_key_color("urgent", "e16000", pal, 0.75) == 0
+    assert kp.ws_key_color("urgent", None, pal, 0.25) == 0xFF0000   # accent fallback
     assert kp.ws_key_color("empty", "e16000", pal) == 0
 
 
@@ -179,11 +189,11 @@ def test_ctx_key_color_active_full_others_dimmed():
     assert off == kp.scale(kp.hex_to_int("e16000"), kp.OCCUPIED_SCALE)
 
 
-def test_ctx_key_color_bell_pulses_red_regardless_of_identity_hue():
+def test_ctx_key_color_bell_blinks_its_identity_hue():
     pal = {"red": "00FF00"}
-    lit = kp.ctx_key_color({"c": "e16000", "active": False, "bell": True}, pal, 0.0)
+    lit = kp.ctx_key_color({"c": "e16000", "active": False, "bell": True}, pal, 0.25)
     dark = kp.ctx_key_color({"c": "e16000", "active": False, "bell": True}, pal, 0.75)
-    assert lit == 0x00FF00
+    assert lit == kp.hex_to_int("e16000")
     assert dark == 0x000000
 
 
@@ -192,5 +202,5 @@ def test_ctx_key_color_missing_hue_stays_dark_but_a_bell_still_alerts():
     # an identity hue renders off, unless it is ringing.
     pal = {"red": "00FF00"}
     assert kp.ctx_key_color({"c": None, "active": True, "bell": False}, pal) == 0
-    assert kp.ctx_key_color({"c": None, "active": False, "bell": True}, pal, 0.0) \
+    assert kp.ctx_key_color({"c": None, "active": False, "bell": True}, pal, 0.25) \
         == 0x00FF00

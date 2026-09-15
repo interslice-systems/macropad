@@ -26,7 +26,7 @@ def test_metadata_is_bounded_printable_and_ignores_paused_or_untitled_players():
 def test_readout_pages_on_words_holds_heartbeat_and_expires():
     state = Readout(lambda a,b: a-b)
     msg = {'title': 'Summer lofi radio music to put you in a better mood', 'artist': 'Lofi Girl'}
-    assert state.frame(0) == ('SYSTEM AUDIO', 'OPERATOR')
+    assert state.frame(0) == ('SYSTEM AUDIO', '')
     assert state.receive(msg,0)
     assert state.frame(2999) == ('SUMMER LOFI RADIO', 'LOFI GIRL')
     state.receive(msg,2000)
@@ -34,11 +34,11 @@ def test_readout_pages_on_words_holds_heartbeat_and_expires():
     assert state.frame(6000) == ('A BETTER MOOD', 'LOFI GIRL')
     assert not state.receive({'title': 'x'*97, 'artist': ''},8000)
     assert not state.receive({'title': 'x\n', 'artist': ''},8000)
-    assert state.frame(8500) == ('SYSTEM AUDIO', 'OPERATOR')
+    assert state.frame(8500) == ('SYSTEM AUDIO', '')
     state.receive(msg,9000)
     assert state.frame(9000)[0] == 'SUMMER LOFI RADIO'
     state.receive(media.empty(),10000)
-    assert state.frame(10000) == ('SYSTEM AUDIO', 'OPERATOR')
+    assert state.frame(10000) == ('SYSTEM AUDIO', '')
     assert pages('x'*45) == ['X'*20,'X'*20,'X'*5]
 
 
@@ -46,7 +46,7 @@ def test_readout_clock_wrap_and_pixel_bounds():
     state = Readout(lambda a,b: (a-b+32768)%65536-32768)
     state.receive({'title':'Before midnight', 'artist':'Artist'},65000)
     assert state.frame(1000)[0] == 'BEFORE MIDNIGHT'
-    assert state.frame(5964) == ('SYSTEM AUDIO','OPERATOR')
+    assert state.frame(5964) == ('SYSTEM AUDIO', '')
     assert all(0 <= x < 128 and 0 <= y < 64 for x,y in backdrop())
     assert all(len(rows) == 7 and all(0 <= r < 32 for r in rows) for rows in FONT.values())
     assert [tile(4,8,r) for r in range(8)] == [0,0,0,0,2,0,1,1]
