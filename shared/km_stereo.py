@@ -134,7 +134,7 @@ class Readout:
         return True
 
     def tune(self, msg, now):
-        """Preview the station under the knob for `hold` seconds."""
+        """Override both rows with a knob-push notice for `hold` seconds."""
         title, line, hold = msg.get('title'), msg.get('line'), msg.get('hold')
         if any(not isinstance(v, str) or len(v) > 96 or
                any(not 32 <= ord(c) < 127 for c in v) for v in (title,line)):
@@ -142,14 +142,14 @@ class Readout:
         if type(hold) is not int or not 0 < hold <= 30:
             return False
         self.tune_until = now + hold * 1000
-        self.tune_lines = (pages(title)[0], pages(line)[0])   # the first page names the station
+        self.tune_lines = (pages(title)[0], pages(line)[0])   # first page only: a notice never pages
         return True
 
-    def tuning(self, now):
+    def showing_notice(self, now):
         return self.tune_until is not None and self.diff(self.tune_until,now) > 0
 
     def frame(self, now):
-        if self.tuning(now):
+        if self.showing_notice(now):
             return self.tune_lines
         if self.received is None or self.diff(now,self.received) >= STALE_MS:
             return ('SYSTEM AUDIO', '')

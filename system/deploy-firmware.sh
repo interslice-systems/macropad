@@ -93,7 +93,7 @@ rsync -r --delete --filter='P km_*.py' --filter='P .expose-drive' \
     --exclude backup-factory --exclude __pycache__ firmware/ "$MP"/
 # A plain `cp` here only ever ADDS or updates files -- it can't remove a
 # shared module that was deleted from shared/, so a retired km_*.py (e.g.
-# km_coach.py) would survive on CIRCUITPY forever. Scope --delete to exactly
+# km_text.py) would survive on CIRCUITPY forever. Scope --delete to exactly
 # the km_*.py pattern so this pass only ever touches the files it owns and
 # leaves the rest of lib/ (the third-party adafruit_* packages) alone.
 rsync -r --delete --include='km_*.py' --exclude='*' \

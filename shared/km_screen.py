@@ -1,9 +1,6 @@
-"""OLED helpers that survived the weather display: panel geometry, the
-submap badge, and the frame clock. Pure; runs on CPython and CircuitPython.
-
-The rain, bell wall and workspace marquee were retired 2026-09-13 -- the
-display is the radio's faceplate now (see km_stereo). Their history lives
-in docs/specs/2026-08-23-oled-weather-design.md.
+"""OLED helpers outside the faceplate: panel geometry, the submap badge, and
+the frame clock. Pure; runs on CPython and CircuitPython. The faceplate
+itself lives in km_stereo.
 """
 
 SCREEN_W = 128

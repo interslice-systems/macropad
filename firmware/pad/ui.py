@@ -6,8 +6,7 @@ Layer order, bottom to top (see Screen.__init__):
                 (km_stereo); always showing, silent or not
   1  badges     REC + [submap] + the "no link" tag; topmost, composited last
 
-The rain, bell wall and workspace marquee were retired 2026-09-13 (the bell
-keys blink on the deck; the display is a radio). Discipline per
+Discipline per
 docs/pad-timing.md section 5 still holds: every write path diffs against what
 was last written; a static layer costs zero work; no live bitmap is ever
 cleared wholesale.
@@ -23,7 +22,7 @@ import terminalio
 from adafruit_display_text import label
 from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
 
-import km_weather
+import km_screen
 import km_spectrum
 import km_stereo
 
@@ -32,7 +31,7 @@ SPECTRUM_FRAME_MS = 50       # 20 fps, matches the daemon's analyzer rate
 # badges: terminalio.FONT is 6px wide per cell; badges are Labels
 _BADGE_CELL = 6
 _REC_TEXT = " REC "
-_SUBMAP_RIGHT = km_weather.SCREEN_W - len(_REC_TEXT) * _BADGE_CELL - 4
+_SUBMAP_RIGHT = km_screen.SCREEN_W - len(_REC_TEXT) * _BADGE_CELL - 4
 # " [name] " must fit left of REC's reserved corner
 _SUBMAP_MAX = _SUBMAP_RIGHT // _BADGE_CELL - 4
 
@@ -100,7 +99,7 @@ class Screen:
         self._readout = km_stereo.Readout(ticks_diff)
         self._media_drawn = (' ' * km_stereo.COLS, ' ' * km_stereo.COLS)
         self._spectrum = km_spectrum.Spectrum(ticks_diff)
-        self._spectrum_clock = km_weather.FrameClock(
+        self._spectrum_clock = km_screen.FrameClock(
             SPECTRUM_FRAME_MS, ticks_ms(), ticks_add, ticks_diff)
         self._spectrum_drawn = [(0, 0)] * km_spectrum.BANDS
 
@@ -109,7 +108,7 @@ class Screen:
         self._rec = label.Label(terminalio.FONT, text=_REC_TEXT,
                                 color=0x000000, background_color=0xFFFFFF)
         self._rec.anchor_point = (1.0, 0.0)
-        self._rec.anchored_position = (km_weather.SCREEN_W, 0)
+        self._rec.anchored_position = (km_screen.SCREEN_W, 0)
         self._rec.hidden = True
         self._submap = label.Label(terminalio.FONT, text=" ",
                                    color=0x000000, background_color=0xFFFFFF)
@@ -119,8 +118,8 @@ class Screen:
         self._nolink = label.Label(terminalio.FONT, text=" no link ",
                                    color=0x000000, background_color=0xFFFFFF)
         self._nolink.anchor_point = (1.0, 1.0)
-        self._nolink.anchored_position = (km_weather.SCREEN_W,
-                                          km_weather.SCREEN_H)
+        self._nolink.anchored_position = (km_screen.SCREEN_W,
+                                          km_screen.SCREEN_H)
         self._nolink.hidden = True
         self._badges.append(self._rec)
         self._badges.append(self._submap)
@@ -154,13 +153,13 @@ class Screen:
         # already reserves REC's corner -- so the two badges never contend
         # and the anchor is fixed whether or not REC is showing. The badge
         # never reflows; it is simply dropped when the name will not fit.
-        # The fit test and composition live in km_weather.submap_badge so
+        # The fit test and composition live in km_screen.submap_badge so
         # they are host-testable (this file is not).
         # Label.text has no equality short-circuit (docs/pad-timing.md
         # section 5), so the text write goes through its own cache rather
         # than the flags tuple: two different flag tuples can want the same
         # badge text.
-        text = km_weather.submap_badge(submap, _SUBMAP_MAX)
+        text = km_screen.submap_badge(submap, _SUBMAP_MAX)
         self._display.auto_refresh = False
         try:
             _set_hidden(self._rec, not rec)

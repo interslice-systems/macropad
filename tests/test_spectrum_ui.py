@@ -91,9 +91,9 @@ def test_real_renderer_faceplate_is_the_whole_display(monkeypatch):
     screen.tick(200)
     assert sum(g.writes for g in screen._media_grids) == text_writes
     assert grid.writes == writes  # no mutation of an identical frame
-    screen.set_tune({'title': 'jazz lofi radio', 'line': 'TUNING', 'hold': 3}, 210)
+    screen.set_tune({'title': 'jazz lofi radio', 'line': 'LOADING', 'hold': 3}, 210)
     screen.tick(250)
-    assert screen._media_drawn == ('JAZZ LOFI RADIO'.ljust(20), 'TUNING'.ljust(20))
+    assert screen._media_drawn == ('JAZZ LOFI RADIO'.ljust(20), 'LOADING'.ljust(20))
     screen.set_spectrum({'active': False, 'bars': [0]*16}, 260)
     screen.tick(300)
     assert grid.values[0,4] == 0 and not screen._spectrum_group.hidden   # silent, still framed

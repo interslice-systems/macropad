@@ -84,7 +84,7 @@ class Cockpit(App):
     def tick(self, now):
         for n in self.tracker.tick(now):
             self.link.send({"t": "key", "n": n, "act": "hold"})
-        self._draw_leds(now)          # every pass: urgent pulse animation
+        self._draw_leds(now)          # every pass: bell blink animation
         self._sync_screen(now)        # cheap: every setter diffs internally
         self.screen.tick(now)         # spectrum frame clock
 

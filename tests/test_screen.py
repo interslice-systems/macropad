@@ -1,4 +1,4 @@
-from km_weather import SCREEN_W, SCREEN_H, submap_badge, FrameClock
+from km_screen import SCREEN_W, SCREEN_H, submap_badge, FrameClock
 
 
 def test_submap_badge_composes_with_brackets_and_padding():
