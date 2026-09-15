@@ -2,14 +2,14 @@
 
 CircuitPython firmware and a small host daemon that turn an
 [Adafruit MacroPad RP2040](https://www.adafruit.com/product/5128) into a desk
-companion for an [Omarchy](https://omarchy.org) / Hyprland desktop: a physical
-switchboard of open terminal windows, dressed in whatever Omarchy theme is
-active. Desktop stand here: https://www.printables.com/model/1838935-adafruit-macropad-rp2040-stand
+companion for an [Omarchy](https://omarchy.org) / Hyprland desktop: workspace
+and terminal-window keys, a volume knob, and an audio-spectrum OLED, dressed in
+whatever Omarchy theme is active. Desktop stand here: https://www.printables.com/model/1838935-adafruit-macropad-rp2040-stand
 
 Previously called **Keymaker**, then **Operator** (renamed 2026-09-15).
 Historical design documents keep those names; the checkout, daemon and user
-service are now `macropad`, `macropadd` and `macropad.service`. The shared `km_*` modules retain their wire-compatible
-internal names.
+service are now `macropad`, `macropadd` and `macropad.service`. The shared
+`km_*` modules retain their wire-compatible internal names.
 
 ## What it does
 
@@ -17,7 +17,7 @@ A single app: **Cockpit**, the split deck.
 
 - **Top six keys = Hyprland workspaces 1–6**, each lit in its workspace's
   colorhash color (same Petroff-10 palette as the tmux status bar): active
-  full-bright, occupied dimmed, urgent pulsing, empty dark. Tap to switch
+  full-bright, occupied dimmed, urgent blinking in its own color, empty dark. Tap to switch
   workspace; hold to move the focused window there silently.
 - **Bottom six keys = windows on the active workspace**: the tmux windows of
   sessions associated with local terminal windows first (each in the colorhash
@@ -25,17 +25,15 @@ A single app: **Cockpit**, the split deck.
   unassociated terminals (which have no stable name, so they take the cell of
   the key they land on). `tmux-local-clients` is the association authority, so
   ordinary Kitty, foot, and Ghostty windows work without special classes or
-  launchers. Focused full-bright, others dimmed, a bell blinks the key's own hue. Tap to jump to
-  that window.
+  launchers. Focused full-bright, others dimmed, a bell blinks the key's own
+  color. Tap to jump to that window.
 - **The OLED is a radio.** A stereo faceplate with a framed 16-band
   segmented audio spectrum, track/artist text, a frequency legend and
   one-second peak-hold caps. It is always on: silence just leaves the bars
   flat. Audio comes from the default PipeWire output (including Lofi
   Girl/mpv); no microphone or player-specific plugin is needed. REC and
   submap badges overlay it while the screen is being captured or a submap
-  is active. (The digital rain, the bell wall and the workspace-switch
-  numeral were retired 2026-09-13: the deck's blinking keys already carry
-  bells, and the display had a better job.)
+  is active.
 - Urgency runs BEL through tmux and the local terminal/compositor to the pad,
   entirely in-band, so it works the same over mosh as it does locally. For an
   associated terminal, tmux's per-window bell replaces the coarse terminal
@@ -52,7 +50,7 @@ A single app: **Cockpit**, the split deck.
 ### Theme following
 
 The daemon watches Omarchy's active theme (`colors.toml`) and pushes the
-palette to the pad, which re-skins keys and screens within a couple of
+palette to the pad, which re-skins the keys within a couple of
 seconds of a theme switch. No hooks, no templates — one file, one path, both
 stable across Omarchy 3.x and 4.x.
 
@@ -74,11 +72,9 @@ Two programs, one protocol, each side optional to the other:
   connect — so restarts, firmware reloads, and replugs all self-heal.
 
 The split deck's original design lives in
-[docs/specs/2026-08-15-cockpit-v2-design.md](docs/specs/2026-08-15-cockpit-v2-design.md)
-(the 2026-08-22 switchboard-operator spec describes a sticky-slot design that
-was tried and reverted the same day); the retired weather display (rain, bell
-wall, marquee) is kept as history in
-[docs/specs/2026-08-23-oled-weather-design.md](docs/specs/2026-08-23-oled-weather-design.md).
+[docs/specs/2026-08-15-cockpit-v2-design.md](docs/specs/2026-08-15-cockpit-v2-design.md).
+Everything under `docs/specs/` and `docs/plans/` is dated history and may
+describe features that have since been removed.
 
 ## Requirements
 
