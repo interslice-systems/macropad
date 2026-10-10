@@ -2,6 +2,7 @@ import asyncio
 import json
 import shutil
 import subprocess
+import time
 import uuid
 from pathlib import Path
 
@@ -61,6 +62,26 @@ def test_against_real_tmux_isolated_server(tmp_path):
             out, _ = await proc.communicate()
             return proc.returncode, out.decode()
 
+        subprocess.run(tm + ["new-window", "-t", "=alpha", "-n", "agent", "sleep 60"],
+                       check=True)
+        subprocess.run(tm + ["set-option", "-p", "-t", "=alpha:3",
+                             "@claude_state", "blocked"], check=True)
+        subprocess.run(tm + ["set-option", "-p", "-t", "=alpha:2",
+                             "@claude_state", "blocked"], check=True)
+        subprocess.run(tm + ["select-window", "-t", "=alpha:2"], check=True)
+        # A just-created pane reports `tmux` as its command until the fork execs
+        # the shell (or `sleep`), so wait for both to settle before reading.
+        want = {"2": "bash", "3": "sleep"}
+        for _ in range(100):
+            got = subprocess.run(
+                tm + ["list-windows", "-t", "=alpha", "-F",
+                      "#{window_index} #{pane_current_command}"],
+                check=True, capture_output=True, text=True).stdout.split("\n")
+            seen = dict(line.split(" ", 1) for line in got if line)
+            if all(seen.get(k) == v for k, v in want.items()):
+                break
+            time.sleep(0.02)
+
         async def scenario():
             wins = await tmux.list_deck_windows(run=run)
             wins = [w for w in wins if w["s"] == "alpha"]
@@ -70,8 +91,11 @@ def test_against_real_tmux_isolated_server(tmp_path):
             return wins, ok, wins2
 
         wins, ok, wins2 = asyncio.run(scenario())
-        assert [w["i"] for w in wins] == [1, 2]
-        assert wins[1]["active"] is True          # new-window made it active
+        assert [w["i"] for w in wins] == [1, 2, 3]
+        assert wins[1]["active"] is True          # select-window made it active
+        # Window 3 runs `sleep` (not a shell) and is blocked; window 2 is a
+        # shell carrying a stale `blocked`, which the guard drops.
+        assert [w["blocked"] for w in wins] == [False, False, True]
         assert ok is True
         assert wins2[0]["active"] is True         # select-window took effect
     finally:
@@ -80,31 +104,63 @@ def test_against_real_tmux_isolated_server(tmp_path):
 
 def test_parse_deck_windows_uses_tmux_window_id_not_session_index():
     # Field order (see tmux.DECK_FORMAT for the full note): session,
-    # window_id, index, active, bell, name -- active before bell. Rows 1-2
-    # deliberately have active/bell asymmetric so a swap between the two
-    # would fail this test; the third row is all-zero and can't catch it.
-    out = ("mirepoix\t@2\t1\t1\t0\trails\n"
-           "mirepoix\t@5\t3\t0\t1\tlogs\n"
-           "colorhash\t@9\t1\t0\t0\tlab\n")
+    # window_id, index, active, bell, panes, name -- active before bell, the
+    # free-text name LAST. Rows 1-2 deliberately have active/bell asymmetric so
+    # a swap between the two would fail this test; the third row is all-zero
+    # and can't catch it.
+    out = ("mirepoix\t@2\t1\t1\t0\tbash=;\trails\n"
+           "mirepoix\t@5\t3\t0\t1\tbash=;\tlogs\n"
+           "colorhash\t@9\t1\t0\t0\tbash=;\tlab\n")
     got = tmux.parse_deck_windows(out)
     assert got == [
         {"id": "tmux:@2", "s": "mirepoix", "i": 1, "n": "rails",
-         "active": True, "bell": False},
+         "active": True, "bell": False, "blocked": False},
         {"id": "tmux:@5", "s": "mirepoix", "i": 3, "n": "logs",
-         "active": False, "bell": True},
+         "active": False, "bell": True, "blocked": False},
         {"id": "tmux:@9", "s": "colorhash", "i": 1, "n": "lab",
-         "active": False, "bell": False},
+         "active": False, "bell": False, "blocked": False},
     ]
 
 
+def test_parse_deck_windows_separates_blocked_from_bell():
+    # Row 1 is blocked WITHOUT a bell (you looked, didn't answer); row 2 rang
+    # but is not blocked. A swap of the bell and panes fields fails here.
+    out = ("mirepoix\t@2\t1\t0\t0\tclaude=blocked;\tagent\n"
+           "mirepoix\t@5\t2\t0\t1\tclaude=idle;\tdone\n")
+    got = tmux.parse_deck_windows(out)
+    assert [(w["n"], w["bell"], w["blocked"]) for w in got] == [
+        ("agent", False, True), ("done", True, False)]
+
+
+def test_parse_deck_windows_blocked_needs_one_live_claude_pane():
+    out = (
+        # A split window: one shell pane, one blocked Claude -> blocked.
+        "s\t@1\t1\t0\t0\tbash=;claude=blocked;\tsplit\n"
+        # STALE: the Claude died without SessionEnd and the pane is back at a
+        # shell prompt, still carrying `blocked` -> not blocked.
+        "s\t@2\t2\t0\t0\tbash=blocked;\tstale\n"
+        "s\t@3\t3\t0\t0\tzsh=blocked;fish=blocked;sh=blocked;dash=blocked;\tshells\n"
+        # Other states are not blocked.
+        "s\t@4\t4\t0\t0\tclaude=busy;claude=waiting;claude=idle;\tworking\n"
+        # A name with a tab survives: the name is the last field.
+        "s\t@5\t5\t0\t0\tclaude=blocked;\ta\tb\n")
+    got = {w["n"]: w["blocked"] for w in tmux.parse_deck_windows(out)}
+    assert got == {"split": True, "stale": False, "shells": False,
+                   "working": False, "a\tb": True}
+
+
 def test_parse_deck_windows_skips_malformed_and_unparseable_index():
-    out = "sess\t@1\tnotanint\t0\t0\tname\nsess\t@2\ttoo\tfew\n\nok\t@3\t2\t0\t0\tn\n"
+    out = ("sess\t@1\tnotanint\t0\t0\tbash=;\tname\n"
+           "sess\t@2\ttoo\tfew\n\nok\t@3\t2\t0\t0\tbash=;\tn\n")
     assert [x["id"] for x in tmux.parse_deck_windows(out)] == ["tmux:@3"]
 
 
 def test_deck_format_requests_window_id():
     assert "#{window_id}" in tmux.DECK_FORMAT
     assert "#{window_bell_flag}" in tmux.DECK_FORMAT
+    assert "#{@claude_state}" in tmux.DECK_FORMAT
+    assert "#{pane_current_command}" in tmux.DECK_FORMAT
+    assert tmux.DECK_FORMAT.endswith("#{window_name}")   # free text stays last
 
 
 def test_local_clients_command_uses_installed_helper():

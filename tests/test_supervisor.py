@@ -296,13 +296,63 @@ def test_poll_ctx_builds_items_dedupes_and_reemits_on_change(monkeypatch, tmp_pa
     ctx1 = [m for m in first if m["t"] == "ctx"]
     assert len(ctx1) == 1
     assert ctx1[0]["items"] == [{"n": "1 rails", "c": "c00",
-                                 "active": True, "bell": False}]
+                                 "active": True, "bell": False, "blocked": False}]
     assert items[0]["s"] == "mirepoix"            # targets stay daemon-side
     assert items[0]["addr"] == "0xaaa"
-    assert set(ctx1[0]["items"][0]) == {"n", "c", "active", "bell"}
+    assert set(ctx1[0]["items"][0]) == {"n", "c", "active", "bell", "blocked"}
     assert "s" not in ctx1[0]["items"][0]         # ...and off the wire
     assert len([m for m in second if m["t"] == "ctx"]) == 1   # deduped
     assert len([m for m in third if m["t"] == "ctx"]) == 2    # the change re-emits
+
+
+def test_poll_ctx_sends_blocked_to_both_halves_and_only_on_change(monkeypatch, tmp_path):
+    # The persistent hand: a Claude blocked on Chris's answer breathes on its
+    # window key (ctx) AND its workspace key (ws). The poll is the only feed
+    # for it -- no Hyprland event fires when a pane option changes.
+    from macropadd import hyprland as hyprmod
+    from macropadd import tmux as tmuxmod
+
+    CLIENTS = [{"class": "kitty", "address": "0xaaa",
+                "workspace": {"id": 3, "name": "mirepoix"}}]
+    ASSOCIATIONS = [{"session": "mirepoix", "address": "0xaaa",
+                     "workspace": {"id": 3}, "focusHistoryID": 0}]
+
+    async def scenario():
+        windows = [{"id": "tmux:@1", "s": "mirepoix", "i": 1, "n": "agent",
+                    "active": False, "bell": False, "blocked": True}]
+
+        async def fake_list():
+            return [dict(w) for w in windows]
+
+        async def fake_clients():
+            return list(ASSOCIATIONS)
+
+        monkeypatch.setattr(tmuxmod, "list_deck_windows", fake_list)
+        monkeypatch.setattr(tmuxmod, "list_local_clients", fake_clients)
+        monkeypatch.setattr(hyprmod, "led_palette", lambda: ["c00", "c01"])
+        sup = _supervisor(tmp_path)
+        sent = []
+        sup.link = _sent_link(sent)
+        sup.state.clients = CLIENTS
+        sup.state.active = 3
+
+        await sup._poll_ctx()
+        first = list(sent)
+        await sup._poll_ctx()                     # unchanged
+        second = sent[len(first):]
+        windows[0]["blocked"] = False              # answered
+        await sup._poll_ctx()
+        third = sent[len(first) + len(second):]
+        return first, second, third
+
+    first, second, third = asyncio.run(scenario())
+    ws1 = [m for m in first if m["t"] == "ws"]
+    assert len(ws1) == 1 and ws1[0]["blocked"] == [3]
+    assert [m for m in first if m["t"] == "ctx"][0]["items"][0]["blocked"] is True
+    assert second == []                            # no ws, no ctx re-send
+    ws3 = [m for m in third if m["t"] == "ws"]
+    assert len(ws3) == 1 and ws3[0]["blocked"] == []
+    assert [m for m in third if m["t"] == "ctx"][0]["items"][0]["blocked"] is False
 
 
 def test_poll_ctx_before_first_hypr_snapshot_is_a_no_op(monkeypatch, tmp_path):
@@ -359,7 +409,7 @@ def test_poll_ctx_survives_a_tmux_outage_without_blanking_bare_terminals(monkeyp
     ctx = [m for m in sent if m["t"] == "ctx"]
     assert len(ctx) == 1
     assert ctx[0]["items"] == [{"n": "bare", "c": "c00",
-                                "active": False, "bell": True}]
+                                "active": False, "bell": True, "blocked": False}]
     assert items[0]["id"] == "hypr:0xbare"
 
 
@@ -392,7 +442,7 @@ def test_poll_ctx_passes_an_ordinary_kitty_association(monkeypatch, tmp_path):
     (ctx,) = [m for m in sent if m["t"] == "ctx"]
     # c00 is colorhash("macropad") against this 2-cell fake palette.
     assert ctx["items"] == [{"n": "2 macropad", "c": "c00",
-                             "active": True, "bell": False}]
+                             "active": True, "bell": False, "blocked": False}]
     assert items[0]["addr"] == "0xaa"
 
 

@@ -168,6 +168,10 @@ class HyprState:
         self.active = 1
         self.occupied = []
         self.urgent_ws = []
+        # Workspaces holding a Claude blocked on Chris's answer. Fed by the 1 s
+        # ctx poll (set_blocked), not by Hyprland events, and NEVER pruned on
+        # focus: unlike a bell it persists until the prompt is answered.
+        self.blocked_ws = []
         self.colors = {}
         self.names = {}
         self.cls = ""
@@ -244,14 +248,23 @@ class HyprState:
             msgs.append(self._win_msg())
         return msgs
 
+    def set_blocked(self, ws_ids):
+        """Record the blocked-workspace list from the ctx poll. Returns [the ws
+        message] when it changed, else [] -- the same contract as refresh()."""
+        ws_ids = sorted(ws_ids)
+        if ws_ids == self.blocked_ws:
+            return []
+        self.blocked_ws = ws_ids
+        return [self._ws_msg()]
+
     def snapshot(self):
         """Both wire messages, for replaying to a pad that just (re)connected."""
         return [self._ws_msg(), self._win_msg()]
 
     def _ws_msg(self):
         return {"t": "ws", "active": self.active, "occupied": self.occupied,
-                "urgent": self.urgent_ws, "colors": self.colors,
-                "names": self.names}
+                "urgent": self.urgent_ws, "blocked": self.blocked_ws,
+                "colors": self.colors, "names": self.names}
 
     def _win_msg(self):
         return {"t": "win", "cls": self.cls, "title": self.title}
@@ -363,9 +376,31 @@ def ctx_windows(tmux_windows, clients, associations, active, pal, focused_addr="
                         "addr": addr, "active": addr == focused_addr,
                         "c": pal[len(entries) % len(pal)] if pal else None})
     entries = entries[:CTX_KEYS]
+    blocked = {w["id"] for w in tmux_windows if w.get("blocked")}
     for e in entries:
         e["bell"] = e["id"] in bells
+        # Only a tmux window can be blocked: the state is a tmux pane option.
+        e["blocked"] = e["id"] in blocked
     return entries
+
+
+def blocked_workspaces(tmux_windows, associations):
+    """Workspace ids holding a tmux window with a blocked Claude.
+
+    Uses the same session -> local client -> workspace association as the
+    bottom deck (tmux-local-clients), so a session counts on every workspace a
+    local terminal shows it in. A blocked session with no local client (detached,
+    or attached only over mosh) lights no workspace key -- there is no local
+    place to go to.
+    """
+    sessions = {w["s"] for w in tmux_windows if w.get("blocked")}
+    out = set()
+    for a in associations:
+        if a.get("session") in sessions:
+            wid = _ws_sort_id(a.get("workspace"))
+            if wid != WS_ID_LAST:
+                out.add(wid)
+    return sorted(out)
 
 
 def deck_bells(tmux_windows, urgent_addrs, associations):

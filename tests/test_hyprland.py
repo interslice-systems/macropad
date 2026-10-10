@@ -367,3 +367,54 @@ def test_ctx_windows_caps_at_six_keys():
     got = hyprland.ctx_windows(twins, CTX_CLIENTS, CTX_ASSOCIATIONS, 2, PAL10)
     assert len(got) == 6
     assert got[-1]["id"] == "tmux:@6"           # overflow drops from the end
+
+
+# --- blocked: a Claude stalled on Chris's answer (2026-10-10) ----------------
+# Persistent, unlike the bell: it is NOT pruned when you look at the workspace,
+# only when the pane's @claude_state leaves `blocked`.
+
+def test_ctx_windows_carries_blocked_from_tmux_and_never_for_bare_terminals():
+    twins = [dict(w, blocked=(w["id"] == "tmux:@3")) for w in CTX_TWINS]
+    got = {w["id"]: w for w in hyprland.ctx_windows(
+        twins, CTX_CLIENTS, CTX_ASSOCIATIONS, 2, PAL10)}
+    assert got["tmux:@3"]["blocked"] is True
+    assert got["tmux:@2"]["blocked"] is False
+    assert got["hypr:0xcc"]["blocked"] is False   # no @claude_state to read
+
+
+def test_ctx_windows_treats_a_window_without_the_key_as_not_blocked():
+    got = hyprland.ctx_windows(CTX_TWINS, CTX_CLIENTS, CTX_ASSOCIATIONS, 2, PAL10)
+    assert all(w["blocked"] is False for w in got)
+
+
+def test_blocked_workspaces_maps_sessions_through_local_clients():
+    twins = [
+        {"id": "tmux:@1", "s": "mirepoix", "i": 1, "n": "a", "blocked": True},
+        {"id": "tmux:@2", "s": "mirepoix", "i": 2, "n": "b", "blocked": False},
+        {"id": "tmux:@3", "s": "bonsai", "i": 1, "n": "c", "blocked": True},  # no client
+        {"id": "tmux:@4", "s": "oracle", "i": 1, "n": "d", "blocked": False},
+    ]
+    assocs = [
+        {"session": "mirepoix", "address": "0xaa", "workspace": {"id": 2}},
+        {"session": "mirepoix", "address": "0xab", "workspace": {"id": 4}},   # 2nd client
+        {"session": "oracle", "address": "0xac", "workspace": {"id": 3}},
+        {"session": "mirepoix", "address": "0xad", "workspace": {"id": True}},  # junk id
+    ]
+    assert hyprland.blocked_workspaces(twins, assocs) == [2, 4]
+    assert hyprland.blocked_workspaces([], assocs) == []
+
+
+def test_ws_message_carries_blocked_and_set_blocked_reports_only_changes():
+    s = HyprState()
+    (ws,) = [m for m in s.refresh(WORKSPACES, ACTIVE_WS, WIN, CLIENTS) if m["t"] == "ws"]
+    assert ws["blocked"] == []
+    (msg,) = s.set_blocked([1, 5])
+    assert msg["t"] == "ws" and msg["blocked"] == [1, 5]
+    assert msg["active"] == 1                       # the whole ws message, not a delta
+    assert s.set_blocked([1, 5]) == []              # unchanged -> nothing to send
+    # Looking at a blocked workspace does NOT clear it, unlike urgent.
+    msgs = s.refresh(WORKSPACES, {"id": 5}, WIN, CLIENTS)
+    assert all(m["blocked"] == [1, 5] for m in msgs if m["t"] == "ws")
+    assert [m for m in s.snapshot() if m["t"] == "ws"][0]["blocked"] == [1, 5]
+    (cleared,) = s.set_blocked([])
+    assert cleared["blocked"] == []

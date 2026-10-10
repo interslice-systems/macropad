@@ -264,9 +264,16 @@ class Supervisor:
                 twins, self.state.clients, effective_associations, self.state.active,
                 hyprland.led_palette(), focused_addr=self.state.addr, bells=bells)
             self.ctx_items = items
+            # Blocked workspaces ride the ws message, which Hyprland events
+            # otherwise drive; this poll is their only feed (a pane option
+            # changing fires no compositor event). set_blocked dedups.
+            for m in self.state.set_blocked(
+                    hyprland.blocked_workspaces(twins, effective_associations)):
+                self.link.send(m)
             msg = {"t": "ctx", "items": [
                 {"n": it["n"][:CTX_NAME_MAX], "c": it["c"],
-                 "active": it["active"], "bell": it["bell"]} for it in items]}
+                 "active": it["active"], "bell": it["bell"],
+                 "blocked": it["blocked"]} for it in items]}
             if msg != self.ctx_msg:
                 self.ctx_msg = msg
                 self.link.send(msg)
