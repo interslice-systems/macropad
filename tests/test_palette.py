@@ -32,7 +32,7 @@ def test_key_color_missing_keys_fall_back_to_default():
 # * BRIGHTNESS. These two tests pin the properties that were actually broken,
 # rather than pinning OCCUPIED_SCALE itself (which the other tests reference
 # symbolically and would therefore follow silently in any direction).
-BRIGHTNESS = 0.3
+BRIGHTNESS = 1.0      # mirrors firmware/pad/framework.py (0.3 until 2026-10-10)
 FLOOR_PWM = 4          # Chris's comfort floor, measured 2026-08-21 via led-ramp
 BYTE_AT_L_FLOOR = 56   # sRGB byte of OKLab L 0.341, the floor's lightness
 BYTE_AT_L_TOP = 239    # sRGB byte of OKLab L 0.95, top of the LED band
@@ -224,13 +224,17 @@ def test_breathe_is_a_slow_smooth_pulse_not_the_hazard_blink():
     assert abs(min(samples) - kp.BLOCKED_FLOOR) < 1e-6
 
 
-def test_breathe_never_dips_under_ambient_the_rule_the_blink_retired():
-    # The never-dimmer-than-ambient rule was retired for the HARD blink only;
-    # its own comment says it is right for a smooth ramp, where dipping under
-    # an occupied key reads as "a dim workspace", not an alert. A breathe is
-    # exactly that smooth ramp, so the rule applies here.
-    assert kp.BLOCKED_FLOOR >= kp.OCCUPIED_SCALE
-    assert all(kp.blocked_factor(i / 100) >= kp.OCCUPIED_SCALE for i in range(100))
+def test_breathe_dips_under_ambient_but_never_under_the_comfort_floor():
+    """This test used to assert the OPPOSITE (floor at OCCUPIED_SCALE), and the
+    reversal is deliberate. On hardware 2026-10-10 the 0.55 -> 1.0 breathe was
+    "only perceptible if I sit and watch the pad"; Chris asked for a lower floor
+    and more dynamic range. The floor still never reaches dark -- that would
+    collide with an empty key and the bell's off half -- and the dimmest hue in
+    the palette stays at or above his measured comfort floor at the trough."""
+    assert 0.0 < kp.BLOCKED_FLOOR < kp.OCCUPIED_SCALE
+    trough = int(int(BYTE_AT_L_FLOOR * kp.BLOCKED_FLOOR) * BRIGHTNESS)
+    assert trough >= FLOOR_PWM, f"breathe trough {trough} PWM is under the comfort floor"
+    assert 1.0 / kp.BLOCKED_FLOOR >= 8, "breathe swing too shallow to see at a glance"
 
 
 def test_breath_phase_is_quantized_so_a_breathing_key_cannot_flood_the_strip():

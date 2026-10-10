@@ -91,13 +91,16 @@ def urgent_factor(phase):
 # blink = something new happened, breathe = still waiting on you. Pattern is the
 # channel, never hue (CVD), so the key keeps its identity colour.
 #
-# The floor is the OCCUPIED level, not dark. The never-dimmer-than-ambient rule
-# above was retired for the HARD blink only, and its own reasoning says why it
-# still holds here: on a smooth ramp, dipping under an occupied key reads as "a
-# dim workspace" rather than as an alert. So this swings between ambient and
-# full, which is also what keeps it from ever looking like the bell's dark half.
+# The floor sits UNDER ambient, near the comfort floor (2026-10-10). It first
+# shipped at OCCUPIED_SCALE (0.55 -> 1.0), on the old never-dimmer-than-ambient
+# rule, and on hardware it was "only perceptible if I sit and watch the pad":
+# a 1.8:1 swing. Chris asked for more dynamic range. 0.1 is a 10:1 swing that
+# still never reaches dark (an empty key, the bell's off half), and it keeps the
+# palette's dimmest hue (sRGB byte 56) at PWM 5 at full brightness -- one step
+# over his measured comfort floor of PWM 4. PWM is linear in this factor:
+# neopixel emits int(byte * factor) * BRIGHTNESS (see tests/test_palette.py).
 BLOCKED_PERIOD_MS = 3000
-BLOCKED_FLOOR = OCCUPIED_SCALE
+BLOCKED_FLOOR = 0.1
 
 # The firmware loop has no sleep, and with auto_write every changed pixel is a
 # whole-strip write. A breathe changes some channel byte on most passes, so the

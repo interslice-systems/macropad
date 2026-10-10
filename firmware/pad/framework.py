@@ -4,7 +4,10 @@ from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
 from .link import Link
 from .ui import Screen
 
-BRIGHTNESS = 0.3
+# Full output (2026-10-10, was 0.3 since 2026-08-15). At 0.3 the keys washed out
+# in daylight and every animation lived in a narrow, dim band. Ratios between
+# states are set in shared/km_palette.py; this only scales the whole deck.
+BRIGHTNESS = 1.0
 
 
 class App:
