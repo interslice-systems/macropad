@@ -204,3 +204,78 @@ def test_ctx_key_color_missing_hue_stays_dark_but_a_bell_still_alerts():
     assert kp.ctx_key_color({"c": None, "active": True, "bell": False}, pal) == 0
     assert kp.ctx_key_color({"c": None, "active": False, "bell": True}, pal, 0.25) \
         == 0x00FF00
+
+
+# --- blocked: a Claude waiting on Chris's answer (2026-10-10) ---------------
+#
+# A blocked key BREATHES: a slow, smooth pulse in the key's own hue, distinct
+# from the bell's 1 s hazard blink by pattern alone (Chris's CVD makes pattern,
+# not hue, the channel). It persists until the prompt is answered -- the bell
+# means "something new happened", the breathe means "still waiting on you".
+
+def test_breathe_is_a_slow_smooth_pulse_not_the_hazard_blink():
+    assert kp.BLOCKED_PERIOD_MS >= 2500                  # slow: ~3 s, vs a 1 s blink
+    samples = [kp.blocked_factor(i / 1000) for i in range(1000)]
+    # Smooth: no step anywhere is bigger than a few percent of the swing.
+    steps = [abs(b - a) for a, b in zip(samples, samples[1:] + samples[:1])]
+    assert max(steps) < 0.01
+    # Peaks at full brightness, troughs at the occupied level.
+    assert abs(max(samples) - 1.0) < 1e-6
+    assert abs(min(samples) - kp.BLOCKED_FLOOR) < 1e-6
+
+
+def test_breathe_never_dips_under_ambient_the_rule_the_blink_retired():
+    # The never-dimmer-than-ambient rule was retired for the HARD blink only;
+    # its own comment says it is right for a smooth ramp, where dipping under
+    # an occupied key reads as "a dim workspace", not an alert. A breathe is
+    # exactly that smooth ramp, so the rule applies here.
+    assert kp.BLOCKED_FLOOR >= kp.OCCUPIED_SCALE
+    assert all(kp.blocked_factor(i / 100) >= kp.OCCUPIED_SCALE for i in range(100))
+
+
+def test_breath_phase_is_quantized_so_a_breathing_key_cannot_flood_the_strip():
+    # The firmware loop has no sleep and every changed pixel is a whole-strip
+    # write (auto_write), so the phase steps on a frame grid, not per ms.
+    frame = kp.BLOCKED_FRAME_MS
+    assert 20 <= frame <= 50
+    assert kp.BLOCKED_PERIOD_MS % frame == 0 and (kp.BLOCKED_PERIOD_MS // 2) % frame == 0
+    assert kp.blocked_factor(kp.breath_phase(kp.BLOCKED_PERIOD_MS // 2)) == 1.0
+    assert kp.breath_phase(0) == kp.breath_phase(frame - 1)
+    assert kp.breath_phase(frame) != kp.breath_phase(0)
+    assert kp.breath_phase(kp.BLOCKED_PERIOD_MS) == kp.breath_phase(0)
+    assert 0.0 <= kp.breath_phase(123456789) < 1.0
+
+
+def test_ws_key_color_blocked_breathes_the_workspace_hue():
+    pal = {"accent": "FF0000"}
+    c = kp.hex_to_int("e16000")
+    assert kp.ws_key_color("blocked", "e16000", pal, breath=0.5) == c       # peak
+    assert kp.ws_key_color("blocked", "e16000", pal, breath=0.0) == \
+        kp.scale(c, kp.BLOCKED_FLOOR)                                        # trough
+    # No hue: breathe the theme accent, like the bell's fallback.
+    assert kp.ws_key_color("blocked", None, pal, breath=0.5) == 0xFF0000
+
+
+def test_ctx_key_color_blocked_outranks_bell_and_active():
+    pal = {"red": "00FF00"}
+    c = kp.hex_to_int("e16000")
+    for active in (True, False):
+        for bell in (True, False):
+            item = {"c": "e16000", "active": active, "bell": bell, "blocked": True}
+            assert kp.ctx_key_color(item, pal, phase=0.75, breath=0.0) == \
+                kp.scale(c, kp.BLOCKED_FLOOR)
+            assert kp.ctx_key_color(item, pal, phase=0.75, breath=0.5) == c
+
+
+def test_ctx_key_color_blocked_without_a_hue_still_alerts():
+    pal = {"red": "00FF00"}
+    item = {"c": None, "active": False, "bell": False, "blocked": True}
+    assert kp.ctx_key_color(item, pal, breath=0.5) == 0x00FF00
+
+
+def test_ctx_key_color_an_item_from_an_old_daemon_has_no_blocked_key():
+    # New firmware, old daemon: the key is simply absent -> not blocked.
+    pal = {"red": "00FF00"}
+    item = {"c": "e16000", "active": False, "bell": False}
+    assert kp.ctx_key_color(item, pal, breath=0.5) == \
+        kp.scale(kp.hex_to_int("e16000"), kp.OCCUPIED_SCALE)

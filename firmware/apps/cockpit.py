@@ -18,8 +18,8 @@ class Cockpit(App):
     name = "cockpit"
 
     def __init__(self):
-        self.ws = {"active": 1, "occupied": [], "urgent": [], "colors": {},
-                   "names": {}}
+        self.ws = {"active": 1, "occupied": [], "urgent": [], "blocked": [],
+                   "colors": {}, "names": {}}
         self.ctx = {"t": "ctx", "items": []}
         # `win` and `ws["names"]` are accepted and ignored: the daemon still
         # sends both (the protocol is unchanged) but the OLED has no consumer
@@ -84,13 +84,23 @@ class Cockpit(App):
     def tick(self, now):
         for n in self.tracker.tick(now):
             self.link.send({"t": "key", "n": n, "act": "hold"})
-        self._draw_leds(now)          # every pass: bell blink animation
+        self._draw_leds(now)          # every pass: bell blink + blocked breathe
         self._sync_screen(now)        # cheap: every setter diffs internally
         self.screen.tick(now)         # spectrum frame clock
 
     # ---- drawing --------------------------------------------------
     def _ws_state(self, n):
         ws = n + 1
+        # BLOCKED OUTRANKS ACTIVE (2026-10-10). A Claude in this workspace is
+        # stalled on Chris's answer, and unlike a bell that does not end when
+        # he looks: it ends when he answers. Being ON the workspace says nothing
+        # about having seen the prompt (it can sit in another tmux window, or
+        # he is on his phone), so "act now" keeps the key. The cost: a blocked
+        # active key breathes like any other blocked key, and which workspace
+        # is active reads from the bottom row instead. .get(): a daemon from
+        # before `blocked` sends no such key.
+        if ws in self.ws.get("blocked", ()):
+            return "blocked"
         if ws == self.ws["active"]:
             return "active"
         if ws in self.ws["urgent"]:
@@ -106,16 +116,20 @@ class Cockpit(App):
         # one cycle lands short. Pre-existing, invisible, not worth a
         # wraparound-safe epoch here.)
         phase = (now % BLINK_MS) / BLINK_MS
+        # The blocked breathe runs on its own, slower clock, stepped on a frame
+        # grid so a breathing key cannot turn every loop pass into a strip write.
+        breath = km_palette.breath_phase(now)
         frame = [0x000000] * KEYS
         if self.link.up:
             colors = self.ws.get("colors", {})
             for n in range(6):
                 frame[n] = km_palette.ws_key_color(
-                    self._ws_state(n), colors.get(str(n + 1)), self.palette, phase)
+                    self._ws_state(n), colors.get(str(n + 1)), self.palette, phase,
+                    breath)
             items = self.ctx.get("items", [])
             for n in range(6, KEYS):
                 item = items[n - 6] if n - 6 < len(items) else None
-                frame[n] = km_palette.ctx_key_color(item, self.palette, phase)
+                frame[n] = km_palette.ctx_key_color(item, self.palette, phase, breath)
         # auto_write is True (framework.py), so every pixel assignment drives
         # the whole strip immediately. Writing only the pixels that changed
         # keeps a static deck at zero writes per tick and stops the

@@ -1,4 +1,5 @@
 """Color math for the pad. Pure: no CircuitPython imports."""
+import math
 
 DEFAULT = {
     "name": "default",
@@ -83,6 +84,43 @@ def urgent_factor(phase):
     return URGENT_DARK + (1.0 - URGENT_DARK) * t
 
 
+# A BLOCKED key breathes (2026-10-10): a Claude in that workspace or window is
+# stalled on Chris's answer -- a permission prompt or an AskUserQuestion. Unlike a
+# bell it does not clear when you look; it clears when the prompt is answered.
+# Chris picked a slow breathe over a sticky blink so the two read differently:
+# blink = something new happened, breathe = still waiting on you. Pattern is the
+# channel, never hue (CVD), so the key keeps its identity colour.
+#
+# The floor is the OCCUPIED level, not dark. The never-dimmer-than-ambient rule
+# above was retired for the HARD blink only, and its own reasoning says why it
+# still holds here: on a smooth ramp, dipping under an occupied key reads as "a
+# dim workspace" rather than as an alert. So this swings between ambient and
+# full, which is also what keeps it from ever looking like the bell's dark half.
+BLOCKED_PERIOD_MS = 3000
+BLOCKED_FLOOR = OCCUPIED_SCALE
+
+# The firmware loop has no sleep, and with auto_write every changed pixel is a
+# whole-strip write. A breathe changes some channel byte on most passes, so the
+# phase steps on a 30 ms grid (~33 fps, 100 steps a cycle): smooth to the eye, and
+# a bounded number of strip writes per breathing key. 30 divides both the period
+# and its half, so the cycle really reaches its trough and its full-bright peak.
+BLOCKED_FRAME_MS = 30
+
+
+def breath_phase(now_ms):
+    """Linear 0..1 position in the breathe cycle, stepped on BLOCKED_FRAME_MS.
+    (Like the blink's `% BLINK_MS`, it glitches once per ticks_ms wrap.)"""
+    t = (now_ms // BLOCKED_FRAME_MS) * BLOCKED_FRAME_MS
+    return (t % BLOCKED_PERIOD_MS) / BLOCKED_PERIOD_MS
+
+
+def blocked_factor(breath):
+    """Brightness factor for a blocked key: a raised cosine, floor at phase 0,
+    full at 0.5. `breath` is a linear 0..1 ramp over the breathe period."""
+    w = (1.0 - math.cos(2.0 * math.pi * (breath % 1.0))) / 2.0
+    return BLOCKED_FLOOR + (1.0 - BLOCKED_FLOOR) * w
+
+
 def hex_to_int(s):
     s = s.lstrip("#")
     return int(s[:6], 16)
@@ -99,7 +137,9 @@ def _c(pal, key):
     return hex_to_int(pal.get(key) or DEFAULT[key])
 
 
-def key_color(state, pal, phase=0.0):
+def key_color(state, pal, phase=0.0, breath=0.0):
+    if state == "blocked":
+        return scale(_c(pal, "accent"), blocked_factor(breath))
     if state == "active":
         return _c(pal, "accent")
     if state == "occupied":
@@ -111,7 +151,7 @@ def key_color(state, pal, phase=0.0):
     return 0
 
 
-def ws_key_color(state, ws_hex, pal, phase=0.0):
+def ws_key_color(state, ws_hex, pal, phase=0.0, breath=0.0):
     """Top-half key: the workspace's colorhash hue, blinking when urgent.
 
     A ringing key KEEPS its hue (2026-09-15). It used to swap to the theme's
@@ -122,8 +162,10 @@ def ws_key_color(state, ws_hex, pal, phase=0.0):
     palette.json) falls back to the theme accent.
     """
     if ws_hex is None or state == "empty":
-        return key_color(state, pal, phase)
+        return key_color(state, pal, phase, breath)
     c = hex_to_int(ws_hex)
+    if state == "blocked":
+        return scale(c, blocked_factor(breath))
     if state == "active":
         return c
     if state == "occupied":
@@ -133,19 +175,26 @@ def ws_key_color(state, ws_hex, pal, phase=0.0):
     return 0
 
 
-def ctx_key_color(item, pal, phase=0.0):
-    """Bottom-half key for one ctx item ({"c", "active", "bell"}); None -> off.
+def ctx_key_color(item, pal, phase=0.0, breath=0.0):
+    """Bottom-half key for one ctx item ({"c", "active", "bell", "blocked"});
+    None -> off.
 
-    A ringing key blinks its own hue, like the top half. Fail closed on colour,
+    A ringing key blinks its own hue, like the top half; a blocked one breathes
+    it, and blocked outranks both the bell and focus. Fail closed on colour,
     never on the alert: an item without an identity hue renders dark, unless it
-    is ringing -- then it blinks the theme red, since a lost bell is worse than
-    a lost hue.
+    is alerting -- then the theme red carries the pattern, since a lost alert is
+    worse than a lost hue. An item from a daemon that predates `blocked` simply
+    lacks the key, which reads as not blocked.
     """
     if item is None:
         return 0
     if not item.get("c"):
+        if item.get("blocked"):
+            return scale(_c(pal, "red"), blocked_factor(breath))
         return scale(_c(pal, "red"), urgent_factor(phase)) if item.get("bell") else 0
     c = hex_to_int(item["c"])
+    if item.get("blocked"):
+        return scale(c, blocked_factor(breath))
     if item.get("bell"):
         return scale(c, urgent_factor(phase))
     return c if item.get("active") else scale(c, OCCUPIED_SCALE)

@@ -39,6 +39,13 @@ A single app: **Cockpit**, the split deck.
   associated terminal, tmux's per-window bell replaces the coarse terminal
   bell only when their exact Hyprland addresses match; this prevents duplicate
   indications without hiding bells from unassociated terminals.
+- **A Claude blocked on your answer breathes** — a slow ~3 s pulse in the
+  key's own color, on both its window key and its workspace key, outranking
+  a bell and focus. Unlike a bell it does not clear when you look; it clears
+  when the prompt is answered. The source is the tmux pane option
+  `@claude_state` (`blocked`), written by Claude Code hooks (the author's
+  `claude-attn`); a pane back at a shell prompt never counts, so a Claude that
+  died mid-prompt cannot leave a key breathing.
 - **The knob is a volume knob.** Each detent moves the output volume 2%
   through `omarchy-audio-output-volume`, the script behind the keyboard's
   volume keys, so it hits the same sink and shows the same OSD. A fast spin
