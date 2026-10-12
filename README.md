@@ -59,7 +59,10 @@ A single app: **Cockpit**, the split deck.
 The daemon watches Omarchy's active theme (`colors.toml`) and pushes the
 palette to the pad, which re-skins the keys within a couple of
 seconds of a theme switch. No hooks, no templates — one file, one path, both
-stable across Omarchy 3.x and 4.x.
+stable across Omarchy 3.x and 4.x. A dark theme (`mode = "dark"` in
+`colors.toml`, Omarchy 4.x) also dims the whole deck to 70%
+(`DARK_SCALE` in `firmware/pad/framework.py`); a theme with no `mode` stays
+at full brightness.
 
 ## How it works
 

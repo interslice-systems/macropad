@@ -32,6 +32,8 @@ def load_palette(theme_dir):
     except (OSError, ValueError):
         return None
     pal = {"t": "palette", "name": Path(theme_dir).name}
+    if data.get("mode") in ("light", "dark"):     # Omarchy 4.x; 3.x has none
+        pal["mode"] = data["mode"]
     for dst, keys in _FALLBACKS.items():
         for k in keys:
             v = data.get(k)

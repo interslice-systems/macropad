@@ -46,6 +46,13 @@ def test_occupied_keys_clear_the_measured_comfort_floor():
     assert _emitted(BYTE_AT_L_FLOOR) >= FLOOR_PWM
 
 
+DARK_SCALE = 0.7      # mirrors firmware/pad/framework.py (dark-theme dim)
+
+
+def test_occupied_keys_clear_the_comfort_floor_under_a_dark_theme():
+    assert int(int(BYTE_AT_L_FLOOR * kp.OCCUPIED_SCALE) * BRIGHTNESS * DARK_SCALE) >= FLOOR_PWM
+
+
 def test_occupied_keys_keep_enough_range_for_lightness_to_mean_anything():
     """At OCCUPIED_SCALE 0.25 the whole palette collapsed into PWM 4..17.
 

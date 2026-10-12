@@ -9,6 +9,15 @@ from .ui import Screen
 # states are set in shared/km_palette.py; this only scales the whole deck.
 BRIGHTNESS = 1.0
 
+# A dark Omarchy theme (sun-theme's night half, or the Edge's sun key) dims the
+# whole deck by this factor (2026-10-12: too bright at night). Read from the
+# palette message's `mode`; a theme without one stays at full BRIGHTNESS.
+DARK_SCALE = 0.7
+
+
+def brightness_for(mode):
+    return BRIGHTNESS * (DARK_SCALE if mode == "dark" else 1.0)
+
 
 class App:
     name = "app"
@@ -108,6 +117,10 @@ def run(macropad, app):
                     ledtest_until = None
                     macropad.pixels.auto_write = True
                 continue                       # never reaches the app
+            if m.get("t") == "palette":
+                # Brightness is the framework's, not the app's: a global scale
+                # keeps every ratio in shared/km_palette.py intact.
+                macropad.pixels.brightness = brightness_for(m.get("mode"))
             try:
                 app.on_msg(m)
             except Exception as e:

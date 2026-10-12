@@ -45,6 +45,19 @@ def test_load_palette_quattro_style_semantic_keys(tmp_path):
     assert pal["red"] == "ff0000" and pal["muted"] == "333344"
 
 
+def test_load_palette_carries_light_dark_mode(tmp_path):
+    # Omarchy 4 colors.toml leads with mode = "light"|"dark"; the pad dims on dark.
+    dark = _theme(tmp_path, "d", 'mode = "dark"\naccent = "#112233"\n')
+    light = _theme(tmp_path, "l", 'mode = "light"\naccent = "#112233"\n')
+    assert load_palette(dark)["mode"] == "dark"
+    assert load_palette(light)["mode"] == "light"
+
+
+def test_load_palette_without_mode_omits_it(tmp_path):
+    # Omarchy 3.x themes have no mode key: absent means full brightness.
+    assert "mode" not in load_palette(_theme(tmp_path, "x", 'accent = "#112233"\n'))
+
+
 def test_load_palette_bad_or_missing_file(tmp_path):
     d = tmp_path / "x"; d.mkdir()
     assert load_palette(d) is None
